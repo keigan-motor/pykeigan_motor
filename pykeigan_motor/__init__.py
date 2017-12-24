@@ -1,1 +1,1 @@
-from .core import hmm
+from . import KMControllers

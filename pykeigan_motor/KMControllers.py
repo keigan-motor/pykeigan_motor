@@ -1,0 +1,423 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Dec 10 16:50:24 2017
+
+@author: takata@innovotion.co.jp
+"""
+import serial,struct
+from bluepy import btle
+
+def float2bytes(float_value):
+    float_value=float(float_value)
+    ba = bytearray(struct.pack("!f", float_value))
+    return ba
+
+def uint8_t2bytes(uint8_value):
+    uint8_value=int(uint8_value)
+    if uint8_value>256-1:
+        uint8_value=256-1
+    return struct.pack("B",uint8_t2bytes)
+
+def uint16_t2bytes(uint16_value):
+    uint16_value=int(uint16_value)
+    if uint16_value>256**2-1:
+        uint16_value=256**2-1
+    val1=int(uint16_value/256)
+    val2=uint16_value-val1*256
+    return struct.pack("BB",val1,val2)
+
+def uint32_t2bytes(uint32_value):
+    uint32_value=int(uint32_value)
+    if uint32_value>256**4-1:
+        uint32_value=256**4-1
+    val1=int(uint32_value/256**3)
+    val2=int((uint32_value-val1*256**3)/256**2)
+    val3=int((uint32_value-val1*256**3-val2*256**2)/256)
+    val4=uint32_value-val1*256**3-val2*256**2-val3*256
+    return struct.pack("BBBB",val1,val2,val3,val4)
+
+class Controller:
+    def __init__(self):
+        pass
+
+    def run_command(self,val,characteristics):
+        print(val,characteristics)
+
+    # Settings
+    def maxSpeed(self,max_speed,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the maximum speed of rotation to the 'max_speed' in rad/sec.
+        """
+        command=b'\x02'
+        values=float2bytes(max_speed)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def minSpeed(self,min_speed,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the minimum speed of rotation to the 'min_speed' in rad/sec.
+        """
+        command=b'\x03'
+        values=float2bytes(min_speed)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def curveType(self,curve_type,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the acceleration or deceleration curve to the 'curve_type'.
+        typedef enum curveType =
+        {
+            CURVE_TYPE_NONE = 0, // Turn off Motion control
+            CURVE_TYPE_TRAPEZOID = 1, // Turn on Motion control with trapezoidal curve
+        }
+        """
+        command=b'\x05'
+        values=uint8_t2bytes(curve_type)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def acc(self,_acc,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the acceleration of rotation to the positive 'acc' in rad/sec^2.
+        """
+        command=b'\x07'
+        values=float2bytes(_acc)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def dec(self,_dec,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the deceleration of rotation to the positive 'dec' in rad/sec^2.
+        """
+        command=b'\x08'
+        values=float2bytes(_dec)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def maxTorque(self,max_torque,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the maximum torque to the positive 'max_torque' in N.m.
+        """
+        command=b'\x0E'
+        values=float2bytes(max_torque)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def qCurrentP(self,q_current_p,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the q-axis current PID controller's Proportional gain to the postiive 'q_current_p'.
+        """
+        command=b'\x18'
+        values=float2bytes(q_current_p)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def qCurrentI(self,q_current_i,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the q-axis current PID controller's Integral gain to the positive 'q_current_i'.
+        """
+        command=b'\x19'
+        values=float2bytes(q_current_i)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def qCurrentD(self,q_current_d,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the q-axis current PID controller's Differential gain to the postiive 'q_current_d'.
+        """
+        command=b'\x1A'
+        values=float2bytes(q_current_d)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def speedP(self,speed_p,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the speed PID controller's Proportional gain to the positive 'speed_p'.
+        """
+        command=b'\x1B'
+        values=float2bytes(speed_p)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def speedI(self,speed_i,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the speed PID controller's Integral gain to the positive 'speed_i'.
+        """
+        command=b'\x1C'
+        values=float2bytes(speed_i)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def speedD(self,speed_d,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the speed PID controller's Deferential gain to the positive 'speed_d'.
+        """
+        command=b'\x1D'
+        values=float2bytes(speed_d)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def positionP(self,position_p,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the position PID controller's Proportional gain to the positive 'position_p'.
+        """
+        command=b'\x1E'
+        values=float2bytes(position_p)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def resetPID(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Reset all the PID parameters to the firmware default settings.
+        """
+        command=b'\x22'
+        self.run_command(command+identifier+crc16,'motor_settings')
+
+    def ownColor(self,red,green,blue,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the own LED color.
+        """
+        command=b'\x3A'
+        values=uint8_t2bytes(red)+uint8_t2bytes(green)+uint8_t2bytes(blue)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def readRegister(self,register,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        '''
+        Read a specified setting (register).
+        '''
+        command=b'\x40'
+        values=uint8_t2bytes(register)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def saveAllRegisters(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Save all settings (registers) in flash memory.
+        """
+        command=b'\x41'
+        self.run_command(command+identifier+crc16,'motor_settings')
+
+    def resetRegister(self,register,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Reset a specified register's value to the firmware default setting.
+        """
+        command=b'\x4E'
+        values=uint8_t2bytes(register)
+        self.run_command(command+identifier+values+crc16,'motor_settings')
+
+    def resetAllRegisters(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Reset all registers' values to the firmware default setting.
+        """
+        command=b'\x4F'
+        self.run_command(command+identifier+crc16,'motor_settings')
+
+    # Motor Action
+    def disable(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Disable motor action.
+        """
+        command=b'\x50'
+        self.run_command(command+identifier+crc16,'motor_control')
+
+    def enable(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Enable motor action.
+        """
+        command=b'\x51'
+        self.run_command(command+identifier+crc16,'motor_control')
+
+    def speed(self,speed,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the speed of rotation to the positive 'speed' in rad/sec.
+        """
+        command=b'\x58'
+        values=float2bytes(speed)
+        self.run_command(command+identifier+values+crc16,'motor_control')
+
+    def presetPosition(self,position,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Preset the current absolute position as the specified 'position' in rad. (Set it to zero when setting origin)
+        """
+        command=b'\x5A'
+        values=float2bytes(position)
+        self.run_command(command+identifier+values+crc16,'motor_control')
+
+    def runForward(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Rotate the motor forward (counter clock-wise) at the speed set by 0x58: speed.
+        """
+        command=b'\x60'
+        self.run_command(command+identifier+crc16,'motor_control')
+
+    def runReverse(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Rotate the motor reverse (clock-wise) at the speed set by 0x58: speed.
+        """
+        command=b'\x61'
+        self.run_command(command+identifier+crc16,'motor_control')
+
+    def moveTo(self,position,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Move the motor to the specified absolute 'position' at the speed set by 0x58: speed.
+        """
+        command=b'\x66'
+        values=float2bytes(position)
+        self.run_command(command+identifier+values+crc16,'motor_control')
+
+    def moveBy(self,distance,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Move motor by the specified relative 'distance' from the current position at the speed set by 0x58: speed.
+        """
+        command=b'\x68'
+        values=float2bytes(distance)
+        self.run_command(command+identifier+values+crc16,'motor_control')
+
+    def free(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Stop the motor's excitation
+        """
+        command=b'\x6C'
+        self.run_command(command+identifier+crc16,'motor_control')
+
+    def stop(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Decelerate the speed to zero and stop.
+        """
+        command=b'\x6D'
+        self.run_command(command+identifier+crc16,'motor_control')
+
+    def holdTorque(self,torque,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Keep and output the specified torque.
+        """
+        command=b'\x72'
+        values=float2bytes(torque)
+        self.run_command(command+identifier+values+crc16,'motor_control')
+
+    def doTaskSet(self,index,repeating,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Do taskset at the specified 'index' 'repeating' times.
+        """
+        command=b'\x81'
+        values=uint16_t2bytes(index)+uint32_t2bytes(repeating)
+        self.run_command(command+identifier+values+crc16,'motor_control')
+
+    def preparePlaybackMotion(self,index,repeating,option,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\x86'
+        values=uint16_t2bytes(index)+uint32_t2bytes(repeating)+uint8_t2bytes(option)
+        self.run_command(command+identifier+values+crc16,'motor_control')
+
+    def startPlayback(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\x87'
+        self.run_command(command+identifier+crc16,'motor_control')
+
+    def stopPlayback(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\x88'
+        self.run_command(command+identifier+crc16,'motor_control')
+
+    # Queue
+    def pause(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\x90'
+        self.run_command(command+identifier+crc16)
+
+    def resume(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\x91'
+        self.run_command(command+identifier+crc16)
+
+    def wait(self,time,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\x92'
+        values=uint32_t2bytes(time)
+        self.run_command(command+identifier+values+crc16)
+
+    def reset(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\x95'
+        self.run_command(command+identifier+crc16)
+
+    # Taskset
+    def startRecordingTaskset(self,index,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\xA0'
+        values=uint16_t2bytes(index)
+        self.run_command(command+identifier+values+crc16)
+
+    def stopRecordingTaskset(self,index,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\xA2'
+        values=uint16_t2bytes(index)
+        self.run_command(command+identifier+values+crc16)
+
+    def eraseTaskset(self,index,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\xA3'
+        values=uint16_t2bytes(index)
+        self.run_command(command+identifier+values+crc16)
+
+    def eraseAllTaskset(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\xA4'
+        self.run_command(command+identifier+crc16)
+
+    # Teaching
+    def prepareTeachingMotion(self,index,time,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\xAA'
+        values=uint16_t2bytes(index)+uint32_t2bytes(time)
+        self.run_command(command+identifier+values+crc16)
+
+    def startTeachingMotion(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\xAB'
+        self.run_command(command+identifier+crc16)
+
+    def stopTeachingMotion(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\xAC'
+        self.run_command(command+identifier+crc16)
+
+    def eraseMotion(self,index,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\xA4'
+        values=uint16_t2bytes(index)
+        self.run_command(command+identifier+values+crc16)
+
+    def stopAllMotion(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\xAE'
+        self.run_command(command+identifier+crc16)
+
+    # LED
+    def led(self,ledState,red,green,blue,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\xE0'
+        values=uint8_t2bytes(ledState)+uint8_t2bytes(red)+uint8_t2bytes(green)+uint8_t2bytes(blue)
+        self.run_command(command+identifier+values+crc16,"motor_led")
+
+    # IMU
+    def enableIMU(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\xEA'
+        self.run_command(command+identifier+crc16)
+
+    def disableIMU(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\xEB'
+        self.run_command(command+identifier+crc16)
+
+    # System
+    def reboot(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\xF0'
+        self.run_command(command+identifier+crc16)
+
+    def enterDeviceFirmwareUpdate(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\xFD'
+        self.run_command(command+identifier+crc16)
+
+
+class USBController(Controller):
+    def __init__(self,port='/dev/ttyUSB0'):
+        self.port=port
+        self.serial=serial.Serial(port,115200,8,'N',1,None,False,True)
+
+    def run_command(self,val,characteristics=None):
+        self.serial.write(val)
+
+class BLEController(Controller):
+    def __init__(self,addr):
+        self.address=addr
+        self.dev=btle.Peripheral(self.address,'random')
+        for v in self.dev.getCharacteristics():
+            if v.uuid=='f1400001-8936-4d35-a0ed-dfcd795baa8c':
+                self.motor_control_handle=v.getHandle()
+            if v.uuid=='f1400003-8936-4d35-a0ed-dfcd795baa8c':
+                self.motor_led_handle=v.getHandle()
+            if v.uuid=='f1400004-8936-4d35-a0ed-dfcd795baa8c':
+                self.motor_measurement_handle=v.getHandle()
+            if v.uuid=='f1400005-8936-4d35-a0ed-dfcd795baa8c':
+                self.motor_imu_measurement_handle=v.getHandle()
+            if v.uuid=='f1400006-8936-4d35-a0ed-dfcd795baa8c':
+                self.motor_settings_handle=v.getHandle()
+    def run_command(self,val,characteristics=None):
+        if characteristics=='motor_control':
+            self.dev.writeCharacteristic(self.motor_control_handle,val)
+        elif characteristics=='motor_led':
+            self.dev.writeCharacteristic(self.motor_led_handle,val)
+        elif characteristics=='motor_settings':
+            self.dev.writeCharacteristic(self.motor_settings_handle,val)
+        else:
+            raise ValueError('Invalid Characteristics')
