@@ -7,22 +7,18 @@ Just now, we support Linux only, because we use bluepy https://github.com/IanHar
 
 USB Serial
 -----------
-
-```python:usbserial_sample.py
-from pykeigan_motor import KMControllers
-dev=KMControllers.USBContoller('/dev/ttyUSB0')
-dev.enable()
-dev.speed(1.0)
-dev.runForward()
-```
+.. code-block:: python
+  from pykeigan_motor import KMControllers
+  dev=KMControllers.USBContoller('/dev/ttyUSB0')
+  dev.enable()
+  dev.speed(1.0)
+  dev.runForward()
 
 BLE
 ----
-
-```python:ble_sample.py
-from pykeigan_motor import KMControllers
-dev=KMControllers.BLEController("xx:xx:xx:xx:xx")
-dev.enable()
-dev.speed(1.0)
-dev.runForward()
-```
+.. code-block:: python
+  from pykeigan_motor import KMControllers
+  dev=KMControllers.BLEController("xx:xx:xx:xx:xx")
+  dev.enable()
+  dev.speed(1.0)
+  dev.runForward()
