@@ -1,12 +1,25 @@
-Sample Module Repository
+Python Library on Linux for Keigan Motor
 ========================
 
-This simple project is an example repo for Python projects.
-
-`Learn more <http://www.kennethreitz.org/essays/repository-structure-and-python>`_.
+You can control your Keigan Motor through USB Serial and BLE.
+https://www.keigan-motor.com/
+Just now, we support Linux only, because we use bluepy https://github.com/IanHarvey/bluepy
 
 ---------------
+USB Serial
 
-If you want to learn more about ``setup.py`` files, check out `this repository <https://github.com/kennethreitz/setup.py>`_.
+from pykeigan_motor import KMControllers
+dev=KMControllers.USBContoller('/dev/ttyUSB0')
+dev.enable()
+dev.speed(1.0)
+dev.runForward()
 
-✨🍰✨
+---------------
+BLE
+
+from pykeigan_motor import KMControllers
+dev=KMControllers.BLEController("xx:xx:xx:xx:xx")
+dev.enable()
+dev.speed(1.0)
+dev.runForward()
+
