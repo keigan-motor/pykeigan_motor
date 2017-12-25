@@ -5,7 +5,7 @@ You can control your Keigan Motor through USB Serial and BLE.
 
 https://www.keigan-motor.com/
 
-Just now, we support Linux only, because we use bluepy:
+At present we support Linux only, because this library depends on bluepy(Python interface to Bluetooth LE on Linux):
 
 https://github.com/IanHarvey/bluepy
 
