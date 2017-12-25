@@ -13,6 +13,9 @@ def float2bytes(float_value):
     ba = bytearray(struct.pack("!f", float_value))
     return ba
 
+def bytes2float(byte_array):
+    return struct.unpack('!f',byte_array)[0]
+
 def uint8_t2bytes(uint8_value):
     uint8_value=int(uint8_value)
     if uint8_value>256-1:
@@ -26,6 +29,10 @@ def uint16_t2bytes(uint16_value):
     val1=int(uint16_value/256)
     val2=uint16_value-val1*256
     return struct.pack("BB",val1,val2)
+
+def bytes2uint16_t(ba):
+    vals=struct.unpack("BB",ba)
+    return vals[0]*256+vals[1]
 
 def uint32_t2bytes(uint32_value):
     uint32_value=int(uint32_value)
@@ -291,102 +298,181 @@ class Controller:
         self.run_command(command+identifier+values+crc16,'motor_control')
 
     def preparePlaybackMotion(self,index,repeating,option,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Prepare to playback motion at the specified 'index' 'repeating' times.
+        """
         command=b'\x86'
         values=uint16_t2bytes(index)+uint32_t2bytes(repeating)+uint8_t2bytes(option)
         self.run_command(command+identifier+values+crc16,'motor_control')
 
-    def startPlayback(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+    def startPlaybackMotion(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Start to playback motion in the condition of the last preparePlaybackMotion.
+        """
         command=b'\x87'
         self.run_command(command+identifier+crc16,'motor_control')
 
-    def stopPlayback(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+    def stopPlaybackMotion(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Stop to playback motion.
+        """
         command=b'\x88'
         self.run_command(command+identifier+crc16,'motor_control')
 
     # Queue
     def pause(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Pause the queue until 0x91: resume is executed.
+        """
         command=b'\x90'
-        self.run_command(command+identifier+crc16)
+        self.run_command(command+identifier+crc16,'motor_control')
 
     def resume(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Resume the queue.
+        """
         command=b'\x91'
-        self.run_command(command+identifier+crc16)
+        self.run_command(command+identifier+crc16,'motor_control')
 
     def wait(self,time,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Wait the queue or pause the queue for the specified 'time' in msec and resume it automatically.
+        """
         command=b'\x92'
         values=uint32_t2bytes(time)
         self.run_command(command+identifier+values+crc16)
 
     def reset(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Reset the queue. Erase all tasks in the queue. This command works when 0x90: pause or 0x92: wait are executed.
+        """
         command=b'\x95'
-        self.run_command(command+identifier+crc16)
+        self.run_command(command+identifier+crc16,'motor_control')
 
     # Taskset
     def startRecordingTaskset(self,index,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Start recording taskset at the specified 'index' in the flash memory.
+        In the case of KM-1, index value is from 0 to 49 (50 in total). 
+        """
         command=b'\xA0'
         values=uint16_t2bytes(index)
         self.run_command(command+identifier+values+crc16)
 
     def stopRecordingTaskset(self,index,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Stop recording taskset.
+        This command works while 0xA0: startRecordingTaskset is executed.
+        """
         command=b'\xA2'
         values=uint16_t2bytes(index)
         self.run_command(command+identifier+values+crc16)
 
     def eraseTaskset(self,index,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Erase taskset at the specified index in the flash memory.
+        In the case of KM-1, index value is from 0 to 49 (50 in total). 
+        """
         command=b'\xA3'
         values=uint16_t2bytes(index)
         self.run_command(command+identifier+values+crc16)
 
     def eraseAllTaskset(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Erase all tasksets in the flash memory.  
+        """
         command=b'\xA4'
-        self.run_command(command+identifier+crc16)
+        self.run_command(command+identifier+crc16,'motor_control')
 
     # Teaching
     def prepareTeachingMotion(self,index,time,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Prepare teaching motion by specifying the 'index' in the flash memory and recording 'time' in milliseconds.
+        In the case of KM-1, index value is from 0 to 9 (10 in total).  Recording time cannot exceed 65408 [msec].
+        """
         command=b'\xAA'
         values=uint16_t2bytes(index)+uint32_t2bytes(time)
         self.run_command(command+identifier+values+crc16)
 
     def startTeachingMotion(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Start teaching motion in the condition of the last prepareTeachingMotion.
+        This command works when the teaching index is specified by 0xAA: prepareTeachingMotion.
+        """
         command=b'\xAB'
-        self.run_command(command+identifier+crc16)
+        self.run_command(command+identifier+crc16,'motor_control')
 
     def stopTeachingMotion(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Stop teaching motion.
+        """
         command=b'\xAC'
-        self.run_command(command+identifier+crc16)
+        self.run_command(command+identifier+crc16,'motor_control')
 
     def eraseMotion(self,index,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Erase motion at the specified index in the flash memory.
+        In the case of KM-1, index value is from 0 to 9 (10 in total). 
+        """
         command=b'\xA4'
         values=uint16_t2bytes(index)
         self.run_command(command+identifier+values+crc16)
 
-    def stopAllMotion(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+    def eraseAllMotion(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Erase all motion in the flash memory.
+        """
         command=b'\xAE'
-        self.run_command(command+identifier+crc16)
+        self.run_command(command+identifier+crc16,'motor_control')
 
     # LED
     def led(self,ledState,red,green,blue,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the LED state (off, solid, flash and dim) and color intensity (red, green and blue).
+        typedef enum ledState =
+        {
+          LED_STATE_OFF = 0, // LED off 
+          LED_STATE_ON_SOLID = 1, // LED solid
+          LED_STATE_ON_FLASH = 2, // LED flash 
+          LED_STATE_ON_DIM = 3 // LED dim
+        } 
+        """
         command=b'\xE0'
         values=uint8_t2bytes(ledState)+uint8_t2bytes(red)+uint8_t2bytes(green)+uint8_t2bytes(blue)
         self.run_command(command+identifier+values+crc16,"motor_led")
 
     # IMU
     def enableIMU(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Enable the IMU and start notification of the measurement values.
+        This command is only available for BLE (not implemented on-wired.)
+        When this command is executed, the IMU measurement data is notified to BLE IMU Measuement characteristics.
+        """
         command=b'\xEA'
-        self.run_command(command+identifier+crc16)
+        self.run_command(command+identifier+crc16,'motor_control')
 
     def disableIMU(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Disable the IMU and stop notification of the measurement values.
+        """
         command=b'\xEB'
-        self.run_command(command+identifier+crc16)
+        self.run_command(command+identifier+crc16,'motor_control')
 
     # System
     def reboot(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Reboot the system.
+        """
         command=b'\xF0'
-        self.run_command(command+identifier+crc16)
+        self.run_command(command+identifier+crc16,'motor_control')
 
     def enterDeviceFirmwareUpdate(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Enter the device firmware update mode.
+        Enter the device firmware update mode or bootloader mode. It goes with reboot.
+        """
         command=b'\xFD'
-        self.run_command(command+identifier+crc16)
+        self.run_command(command+identifier+crc16,'motor_control')
 
 
 class USBController(Controller):
@@ -401,6 +487,16 @@ class BLEController(Controller):
     def __init__(self,addr):
         self.address=addr
         self.dev=btle.Peripheral(self.address,'random')
+        self.position=0.0
+        self.velocity=0.0
+        self.torque=0.0
+        self.accel_x=0.0
+        self.accel_y=0.0
+        self.accel_z=0.0
+        self.temp=0
+        self.gyro_x=0
+        self.gyro_y=0
+        self.gyro_z=0
         for v in self.dev.getCharacteristics():
             if v.uuid=='f1400001-8936-4d35-a0ed-dfcd795baa8c':
                 self.motor_control_handle=v.getHandle()
@@ -421,3 +517,42 @@ class BLEController(Controller):
             self.dev.writeCharacteristic(self.motor_settings_handle,val)
         else:
             raise ValueError('Invalid Characteristics')
+    
+    def connect(self):
+        """
+        Establish the BLE connection.
+        """
+        self.dev.connect()
+    
+    def disconnect(self):
+        """
+        Close the BLE connection.
+        """
+        self.dev.disconnect()
+        
+    def read_motor_measurement(self):
+        """
+        Get the position, velocity, and torque and store them to the properties 'position' in rad, 'velocity' in rad/sec, and 'torque' in N.m.
+        """
+        ba=self.dev.readCharacteristic(self.motor_measurement_handle)
+        self.position=bytes2float(ba[0:4])
+        self.velocity=bytes2float(ba[4:8])
+        self.torque=bytes2float(ba[8:12])
+        return self.position,self.velocity,self.torque
+    
+    def read_imu_mesurement(self):
+        """
+        Get the x,y,z axis acceleration, temperature, and anguler velocities around x,y,z axis
+        and store them to 'accel_x', 'accel_y', 'accel_z' in g(9.80665 m/s^2), 'temp' in degree Celsius, 'gyro_x', 'gyro_y', and 'gyro_z' in rad/sec.
+        """
+        ba=self.dev.readCharacteristic(self.motor_imu_measurement_handle)
+        self.accel_x=bytes2uint16_t(ba[0:2])* 2.0 / 32767
+        self.accel_y=bytes2uint16_t(ba[2:4])* 2.0 / 32767
+        self.accel_z=bytes2uint16_t(ba[4:6])* 2.0 / 32767
+        self.temp=bytes2uint16_t(ba[6:8])/333.87 + 21.00
+        self.gyro_x=bytes2uint16_t(ba[8:10])* 0.00013316211
+        self.gyro_y=bytes2uint16_t(ba[10:12])* 0.00013316211
+        self.gyro_z=bytes2uint16_t(ba[12:14])* 0.00013316211
+        return self.accel_x,self.accel_y,self.accel_z,self.temp,self.gyro_x,self.gyro_y,self.gyro_z
+        
+        
