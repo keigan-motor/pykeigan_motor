@@ -14,7 +14,7 @@ setup(
     version='0.1.0',
     description='Python module for Keigan Motors',
     long_description=readme,
-    install_requires=['serial','struct','bluepy'],
+    install_requires=['pyserial','bluepy'],
     author='Tomohiro Takata',
     author_email='takata@innovotion.co.jp',
     url='https://github.com/wingcloud/pykeigan_motor',
