@@ -20,7 +20,7 @@ def uint8_t2bytes(uint8_value):
     uint8_value=int(uint8_value)
     if uint8_value>256-1:
         uint8_value=256-1
-    return struct.pack("B",uint8_t2bytes)
+    return struct.pack("B",uint8_value)
 
 def uint16_t2bytes(uint16_value):
     uint16_value=int(uint16_value)
@@ -31,8 +31,10 @@ def uint16_t2bytes(uint16_value):
     return struct.pack("BB",val1,val2)
 
 def bytes2uint16_t(ba):
-    vals=struct.unpack("BB",ba)
-    return vals[0]*256+vals[1]
+    return struct.unpack("BB",ba)[0]
+
+def bytes2int16_t(ba):
+    return struct.unpack(">h",ba)[0]
 
 def uint32_t2bytes(uint32_value):
     uint32_value=int(uint32_value)
@@ -546,13 +548,13 @@ class BLEController(Controller):
         and store them to 'accel_x', 'accel_y', 'accel_z' in g(9.80665 m/s^2), 'temp' in degree Celsius, 'gyro_x', 'gyro_y', and 'gyro_z' in rad/sec.
         """
         ba=self.dev.readCharacteristic(self.motor_imu_measurement_handle)
-        self.accel_x=bytes2uint16_t(ba[0:2])* 2.0 / 32767
-        self.accel_y=bytes2uint16_t(ba[2:4])* 2.0 / 32767
-        self.accel_z=bytes2uint16_t(ba[4:6])* 2.0 / 32767
-        self.temp=bytes2uint16_t(ba[6:8])/333.87 + 21.00
-        self.gyro_x=bytes2uint16_t(ba[8:10])* 0.00013316211
-        self.gyro_y=bytes2uint16_t(ba[10:12])* 0.00013316211
-        self.gyro_z=bytes2uint16_t(ba[12:14])* 0.00013316211
+        self.accel_x=bytes2int16_t(ba[0:2])* 2.0 / 32767
+        self.accel_y=bytes2int16_t(ba[2:4])* 2.0 / 32767
+        self.accel_z=bytes2int16_t(ba[4:6])* 2.0 / 32767
+        self.temp=bytes2int16_t(ba[6:8])/333.87 + 21.00
+        self.gyro_x=bytes2int16_t(ba[8:10])* 0.00013316211
+        self.gyro_y=bytes2int16_t(ba[10:12])* 0.00013316211
+        self.gyro_z=bytes2int16_t(ba[12:14])* 0.00013316211
         return self.accel_x,self.accel_y,self.accel_z,self.temp,self.gyro_x,self.gyro_y,self.gyro_z
         
         
