@@ -520,11 +520,11 @@ class BLEController(Controller):
         else:
             raise ValueError('Invalid Characteristics')
     
-    def connect(self):
+    def connect(self,addr):
         """
         Establish the BLE connection.
         """
-        self.dev.connect()
+        self.dev.connect(addr)
     
     def disconnect(self):
         """
