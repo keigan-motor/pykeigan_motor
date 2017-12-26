@@ -8,12 +8,12 @@ Created on Sun Dec 10 16:50:24 2017
 import serial,struct
 from bluepy import btle
 
-def float2bytearray(float_value):
+def float2bytes(float_value):
     float_value=float(float_value)
     ba = bytearray(struct.pack("!f", float_value))
     return ba
 
-def bytearray2float(byte_array):
+def bytes2float(byte_array):
     return struct.unpack('!f',byte_array)[0]
 
 def uint8_t2bytes(uint8_value):
@@ -32,6 +32,9 @@ def uint16_t2bytes(uint16_value):
 
 def bytes2uint16_t(ba):
     return struct.unpack("BB",ba)[0]
+
+def bytes2uint8_t(ba):
+    return struct.unpack("B",ba)[0]
 
 def bytes2int16_t(ba):
     return struct.unpack(">h",ba)[0]
@@ -59,7 +62,7 @@ class Controller:
         Set the maximum speed of rotation to the 'max_speed' in rad/sec.
         """
         command=b'\x02'
-        values=float2bytearray(max_speed)
+        values=float2bytes(max_speed)
         self.run_command(command+identifier+values+crc16,'motor_settings')
 
     def minSpeed(self,min_speed,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -67,7 +70,7 @@ class Controller:
         Set the minimum speed of rotation to the 'min_speed' in rad/sec.
         """
         command=b'\x03'
-        values=float2bytearray(min_speed)
+        values=float2bytes(min_speed)
         self.run_command(command+identifier+values+crc16,'motor_settings')
 
     def curveType(self,curve_type,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -88,7 +91,7 @@ class Controller:
         Set the acceleration of rotation to the positive 'acc' in rad/sec^2.
         """
         command=b'\x07'
-        values=float2bytearray(_acc)
+        values=float2bytes(_acc)
         self.run_command(command+identifier+values+crc16,'motor_settings')
 
     def dec(self,_dec,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -96,7 +99,7 @@ class Controller:
         Set the deceleration of rotation to the positive 'dec' in rad/sec^2.
         """
         command=b'\x08'
-        values=float2bytearray(_dec)
+        values=float2bytes(_dec)
         self.run_command(command+identifier+values+crc16,'motor_settings')
 
     def maxTorque(self,max_torque,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -104,7 +107,7 @@ class Controller:
         Set the maximum torque to the positive 'max_torque' in N.m.
         """
         command=b'\x0E'
-        values=float2bytearray(max_torque)
+        values=float2bytes(max_torque)
         self.run_command(command+identifier+values+crc16,'motor_settings')
 
     def qCurrentP(self,q_current_p,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -112,7 +115,7 @@ class Controller:
         Set the q-axis current PID controller's Proportional gain to the postiive 'q_current_p'.
         """
         command=b'\x18'
-        values=float2bytearray(q_current_p)
+        values=float2bytes(q_current_p)
         self.run_command(command+identifier+values+crc16,'motor_settings')
 
     def qCurrentI(self,q_current_i,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -120,7 +123,7 @@ class Controller:
         Set the q-axis current PID controller's Integral gain to the positive 'q_current_i'.
         """
         command=b'\x19'
-        values=float2bytearray(q_current_i)
+        values=float2bytes(q_current_i)
         self.run_command(command+identifier+values+crc16,'motor_settings')
 
     def qCurrentD(self,q_current_d,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -128,7 +131,7 @@ class Controller:
         Set the q-axis current PID controller's Differential gain to the postiive 'q_current_d'.
         """
         command=b'\x1A'
-        values=float2bytearray(q_current_d)
+        values=float2bytes(q_current_d)
         self.run_command(command+identifier+values+crc16,'motor_settings')
 
     def speedP(self,speed_p,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -136,7 +139,7 @@ class Controller:
         Set the speed PID controller's Proportional gain to the positive 'speed_p'.
         """
         command=b'\x1B'
-        values=float2bytearray(speed_p)
+        values=float2bytes(speed_p)
         self.run_command(command+identifier+values+crc16,'motor_settings')
 
     def speedI(self,speed_i,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -144,7 +147,7 @@ class Controller:
         Set the speed PID controller's Integral gain to the positive 'speed_i'.
         """
         command=b'\x1C'
-        values=float2bytearray(speed_i)
+        values=float2bytes(speed_i)
         self.run_command(command+identifier+values+crc16,'motor_settings')
 
     def speedD(self,speed_d,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -152,7 +155,7 @@ class Controller:
         Set the speed PID controller's Deferential gain to the positive 'speed_d'.
         """
         command=b'\x1D'
-        values=float2bytearray(speed_d)
+        values=float2bytes(speed_d)
         self.run_command(command+identifier+values+crc16,'motor_settings')
 
     def positionP(self,position_p,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -160,7 +163,7 @@ class Controller:
         Set the position PID controller's Proportional gain to the positive 'position_p'.
         """
         command=b'\x1E'
-        values=float2bytearray(position_p)
+        values=float2bytes(position_p)
         self.run_command(command+identifier+values+crc16,'motor_settings')
 
     def resetPID(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -228,7 +231,7 @@ class Controller:
         Set the speed of rotation to the positive 'speed' in rad/sec.
         """
         command=b'\x58'
-        values=float2bytearray(speed)
+        values=float2bytes(speed)
         self.run_command(command+identifier+values+crc16,'motor_control')
 
     def presetPosition(self,position,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -236,7 +239,7 @@ class Controller:
         Preset the current absolute position as the specified 'position' in rad. (Set it to zero when setting origin)
         """
         command=b'\x5A'
-        values=float2bytearray(position)
+        values=float2bytes(position)
         self.run_command(command+identifier+values+crc16,'motor_control')
 
     def runForward(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -258,7 +261,7 @@ class Controller:
         Move the motor to the specified absolute 'position' at the speed set by 0x58: speed.
         """
         command=b'\x66'
-        values=float2bytearray(position)
+        values=float2bytes(position)
         self.run_command(command+identifier+values+crc16,'motor_control')
 
     def moveBy(self,distance,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -266,7 +269,7 @@ class Controller:
         Move motor by the specified relative 'distance' from the current position at the speed set by 0x58: speed.
         """
         command=b'\x68'
-        values=float2bytearray(distance)
+        values=float2bytes(distance)
         self.run_command(command+identifier+values+crc16,'motor_control')
 
     def free(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -288,7 +291,7 @@ class Controller:
         Keep and output the specified torque.
         """
         command=b'\x72'
-        values=float2bytearray(torque)
+        values=float2bytes(torque)
         self.run_command(command+identifier+values+crc16,'motor_control')
 
     def doTaskSet(self,index,repeating,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -537,9 +540,9 @@ class BLEController(Controller):
         Get the position, velocity, and torque and store them to the properties 'position' in rad, 'velocity' in rad/sec, and 'torque' in N.m.
         """
         ba=self.dev.readCharacteristic(self.motor_measurement_handle)
-        self.position=bytearray2float(ba[0:4])
-        self.velocity=bytearray2float(ba[4:8])
-        self.torque=bytearray2float(ba[8:12])
+        self.position=bytes2float(ba[0:4])
+        self.velocity=bytes2float(ba[4:8])
+        self.torque=bytes2float(ba[8:12])
         return self.position,self.velocity,self.torque
     
     def read_imu_mesurement(self):
@@ -556,5 +559,33 @@ class BLEController(Controller):
         self.gyro_y=bytes2int16_t(ba[10:12])* 0.00013316211
         self.gyro_z=bytes2int16_t(ba[12:14])* 0.00013316211
         return self.accel_x,self.accel_y,self.accel_z,self.temp,self.gyro_x,self.gyro_y,self.gyro_z
+    
+    def __read_float_data(self,ba):
+        return bytes2float(ba[4:8])
+    
+    def __read_uint8_data(self,ba):
+        return bytes2uint8_t(ba[4])
+    
+    def __read_rgb_data(self,ba):
+        return (bytes2uint8_t(ba[4]),bytes2uint8_t(ba[5]),bytes2uint8_t(ba[6]))
+    
+    def read_setting_value(self,comm):
+        float_value_comms=[0x02,0x03,0x07,0x08,0x0E,0x18,0x19,0x1A,0x1B,0x1C,0x1D,0x1E]
+        valid_comms=[0x05,0x3A]
+        valid_comms.extend(float_value_comms)
+        if not (comm in valid_comms):
+            return
+        self.readRegister(comm)
+        ba=self.dev.readCharacteristic(self.motor_settings_handle)
+        while len(ba)==6:
+            ba=self.dev.readCharacteristic(self.motor_settings_handle)
+        if comm in float_value_comms:
+            return self.__read_float_data(ba)
+        if comm==0x05:
+            return self.__read_uint8_data(ba)
+        if comm==0x3A:
+            return self.__read_rgb_data(ba)
+        
+            
         
         
