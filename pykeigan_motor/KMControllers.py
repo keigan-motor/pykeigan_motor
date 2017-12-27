@@ -10,8 +10,7 @@ from bluepy import btle
 
 def float2bytes(float_value):
     float_value=float(float_value)
-    ba = bytearray(struct.pack("!f", float_value))
-    return ba
+    return struct.pack("!f", float_value)
 
 def bytes2float(byte_array):
     return struct.unpack('!f',byte_array)[0]
