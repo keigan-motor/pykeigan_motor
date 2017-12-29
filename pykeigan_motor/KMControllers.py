@@ -81,6 +81,7 @@ class Controller:
             CURVE_TYPE_TRAPEZOID = 1, // Turn on Motion control with trapezoidal curve
         }
         """
+        
         command=b'\x05'
         values=uint8_t2bytes(curve_type)
         self.run_command(command+identifier+values+crc16,'motor_settings')
@@ -435,10 +436,10 @@ class Controller:
         Set the LED state (off, solid, flash and dim) and color intensity (red, green and blue).
         typedef enum ledState =
         {
-          LED_STATE_OFF = 0, // LED off 
-          LED_STATE_ON_SOLID = 1, // LED solid
-          LED_STATE_ON_FLASH = 2, // LED flash 
-          LED_STATE_ON_DIM = 3 // LED dim
+            LED_STATE_OFF = 0, // LED off 
+            LED_STATE_ON_SOLID = 1, // LED solid
+            LED_STATE_ON_FLASH = 2, // LED flash 
+            LED_STATE_ON_DIM = 3 // LED dim
         } 
         """
         command=b'\xE0'
