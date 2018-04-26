@@ -81,7 +81,7 @@ class Controller:
             CURVE_TYPE_TRAPEZOID = 1, // Turn on Motion control with trapezoidal curve
         }
         """
-        
+
         command=b'\x05'
         values=uint8_t2bytes(curve_type)
         self.run_command(command+identifier+values+crc16,'motor_settings')
@@ -345,7 +345,7 @@ class Controller:
         """
         command=b'\x92'
         values=uint32_t2bytes(time)
-        self.run_command(command+identifier+values+crc16)
+        self.run_command(command+identifier+values+crc16,'motor_control')
 
     def reset(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
@@ -358,11 +358,11 @@ class Controller:
     def startRecordingTaskset(self,index,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
         Start recording taskset at the specified 'index' in the flash memory.
-        In the case of KM-1, index value is from 0 to 49 (50 in total). 
+        In the case of KM-1, index value is from 0 to 49 (50 in total).
         """
         command=b'\xA0'
         values=uint16_t2bytes(index)
-        self.run_command(command+identifier+values+crc16)
+        self.run_command(command+identifier+values+crc16,'motor_control')
 
     def stopRecordingTaskset(self,index,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
@@ -371,20 +371,20 @@ class Controller:
         """
         command=b'\xA2'
         values=uint16_t2bytes(index)
-        self.run_command(command+identifier+values+crc16)
+        self.run_command(command+identifier+values+crc16,'motor_control')
 
     def eraseTaskset(self,index,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
         Erase taskset at the specified index in the flash memory.
-        In the case of KM-1, index value is from 0 to 49 (50 in total). 
+        In the case of KM-1, index value is from 0 to 49 (50 in total).
         """
         command=b'\xA3'
         values=uint16_t2bytes(index)
-        self.run_command(command+identifier+values+crc16)
+        self.run_command(command+identifier+values+crc16,'motor_control')
 
     def eraseAllTaskset(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
-        Erase all tasksets in the flash memory.  
+        Erase all tasksets in the flash memory.
         """
         command=b'\xA4'
         self.run_command(command+identifier+crc16,'motor_control')
@@ -397,7 +397,7 @@ class Controller:
         """
         command=b'\xAA'
         values=uint16_t2bytes(index)+uint32_t2bytes(time)
-        self.run_command(command+identifier+values+crc16)
+        self.run_command(command+identifier+values+crc16,'motor_control')
 
     def startTeachingMotion(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
@@ -417,11 +417,11 @@ class Controller:
     def eraseMotion(self,index,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
         Erase motion at the specified index in the flash memory.
-        In the case of KM-1, index value is from 0 to 9 (10 in total). 
+        In the case of KM-1, index value is from 0 to 9 (10 in total).
         """
         command=b'\xA4'
         values=uint16_t2bytes(index)
-        self.run_command(command+identifier+values+crc16)
+        self.run_command(command+identifier+values+crc16,'motor_control')
 
     def eraseAllMotion(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
@@ -436,11 +436,11 @@ class Controller:
         Set the LED state (off, solid, flash and dim) and color intensity (red, green and blue).
         typedef enum ledState =
         {
-            LED_STATE_OFF = 0, // LED off 
+            LED_STATE_OFF = 0, // LED off
             LED_STATE_ON_SOLID = 1, // LED solid
-            LED_STATE_ON_FLASH = 2, // LED flash 
+            LED_STATE_ON_FLASH = 2, // LED flash
             LED_STATE_ON_DIM = 3 // LED dim
-        } 
+        }
         """
         command=b'\xE0'
         values=uint8_t2bytes(ledState)+uint8_t2bytes(red)+uint8_t2bytes(green)+uint8_t2bytes(blue)
@@ -522,19 +522,19 @@ class BLEController(Controller):
             self.dev.writeCharacteristic(self.motor_settings_handle,val)
         else:
             raise ValueError('Invalid Characteristics')
-    
+
     def connect(self):
         """
         Establish the BLE connection.
         """
         self.dev.connect(self.address,'random')
-    
+
     def disconnect(self):
         """
         Close the BLE connection.
         """
         self.dev.disconnect()
-        
+
     def read_motor_measurement(self):
         """
         Get the position, velocity, and torque and store them to the properties 'position' in rad, 'velocity' in rad/sec, and 'torque' in N.m.
@@ -544,7 +544,7 @@ class BLEController(Controller):
         self.velocity=bytes2float(ba[4:8])
         self.torque=bytes2float(ba[8:12])
         return (self.position,self.velocity,self.torque)
-    
+
     def read_imu_mesurement(self):
         """
         Get the x,y,z axis acceleration, temperature, and anguler velocities around x,y,z axis
@@ -560,16 +560,16 @@ class BLEController(Controller):
         self.gyro_y=bytes2int16_t(ba[10:12])* 0.00013316211
         self.gyro_z=bytes2int16_t(ba[12:14])* 0.00013316211
         return (self.accel_x,self.accel_y,self.accel_z,self.temp,self.gyro_x,self.gyro_y,self.gyro_z)
-    
+
     def __read_float_data(self,ba):
         return bytes2float(ba[4:8])
-    
+
     def __read_uint8_data(self,ba):
         return bytes2uint8_t(ba[4])
-    
+
     def __read_rgb_data(self,ba):
         return (ba[4],ba[5],ba[6])
-    
+
     def __read_setting_value(self,comm):
         float_value_comms=[0x02,0x03,0x07,0x08,0x0E,0x18,0x19,0x1A,0x1B,0x1C,0x1D,0x1E]
         valid_comms=[0x05,0x3A]
@@ -586,45 +586,45 @@ class BLEController(Controller):
             return self.__read_uint8_data(ba)
         if comm==0x3A:
             return self.__read_rgb_data(ba)
-    
+
     def read_maxSpeed(self):
         return self.__read_setting_value(0x02)
-            
+
     def read_minSpeed(self):
         return self.__read_setting_value(0x03)
-    
+
     def read_curveType(self):
         return self.__read_setting_value(0x05)
-    
+
     def read_acc(self):
         return self.__read_setting_value(0x07)
-    
+
     def read_dec(self):
         return self.__read_setting_value(0x08)
-    
+
     def read_maxTorque(self):
         return self.__read_setting_value(0x0E)
-    
+
     def read_qCurrentP(self):
         return self.__read_setting_value(0x18)
-    
+
     def read_qCurrentI(self):
         return self.__read_setting_value(0x19)
-    
+
     def read_qCurrentD(self):
         return self.__read_setting_value(0x1A)
-    
+
     def read_speedP(self):
         return self.__read_setting_value(0x1B)
-    
+
     def read_speedI(self):
         return self.__read_setting_value(0x1C)
-    
+
     def read_speedD(self):
         return self.__read_setting_value(0x1D)
-    
+
     def read_positionP(self):
         return self.__read_setting_value(0x1E)
-    
+
     def read_ownColor(self):
         return self.__read_setting_value(0x3A)
