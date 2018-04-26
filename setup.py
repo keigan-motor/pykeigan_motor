@@ -17,7 +17,7 @@ setup(
     install_requires=['pyserial','bluepy'],
     author='Tomohiro Takata',
     author_email='takata@innovotion.co.jp',
-    url='https://github.com/wingcloud/pykeigan_motor',
+    url='https://github.com/keigan-motor/pykeigan_motor',
     license=license,
     packages=find_packages(exclude=('tests', 'docs'))
 )
