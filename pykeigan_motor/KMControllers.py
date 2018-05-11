@@ -419,7 +419,7 @@ class Controller:
         Erase motion at the specified index in the flash memory.
         In the case of KM-1, index value is from 0 to 9 (10 in total).
         """
-        command=b'\xA4'
+        command=b'\xAD'
         values=uint16_t2bytes(index)
         self.run_command(command+identifier+values+crc16,'motor_control')
 
