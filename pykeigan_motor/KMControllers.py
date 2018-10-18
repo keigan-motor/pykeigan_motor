@@ -545,7 +545,7 @@ class BLEController(Controller):
         self.torque=bytes2float(ba[8:12])
         return (self.position,self.velocity,self.torque)
 
-    def read_imu_mesurement(self):
+    def read_imu_measurement(self):
         """
         Get the x,y,z axis acceleration, temperature, and anguler velocities around x,y,z axis
         and store them to 'accel_x', 'accel_y', 'accel_z' in g(9.80665 m/s^2), 'temp' in degree Celsius, 'gyro_x', 'gyro_y', and 'gyro_z' in rad/sec.
