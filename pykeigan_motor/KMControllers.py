@@ -550,7 +550,6 @@ class BLEController(Controller):
         Get the x,y,z axis acceleration, temperature, and anguler velocities around x,y,z axis
         and store them to 'accel_x', 'accel_y', 'accel_z' in g(9.80665 m/s^2), 'temp' in degree Celsius, 'gyro_x', 'gyro_y', and 'gyro_z' in rad/sec.
         """
-        self.enableIMU()
         ba=self.dev.readCharacteristic(self.motor_imu_measurement_handle)
         self.accel_x=bytes2int16_t(ba[0:2])* 2.0 / 32767
         self.accel_y=bytes2int16_t(ba[2:4])* 2.0 / 32767
