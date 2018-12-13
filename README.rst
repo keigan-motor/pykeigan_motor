@@ -11,6 +11,7 @@ https://github.com/IanHarvey/bluepy
 
 Installation
 -----------
+.. code-block:: 
 sudo apt install git
 git clone github.com/keigan-motor/pykeigan_motor
 cd pykeigan_motor
