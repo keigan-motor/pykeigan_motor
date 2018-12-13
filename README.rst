@@ -11,13 +11,10 @@ https://github.com/IanHarvey/bluepy
 
 Installation
 -----------
-sudo apt install git
-
-git clone github.com/keigan-motor/pykeigan_motor
-
-cd pykeigan_motor
-
-python setup.py install
+| sudo apt install git
+| git clone github.com/keigan-motor/pykeigan_motor
+| cd pykeigan_motor
+| python setup.py install
 
 
 USB Serial
