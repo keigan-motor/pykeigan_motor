@@ -9,6 +9,14 @@ At present we support Linux only, because this library depends on bluepy(Python 
 
 https://github.com/IanHarvey/bluepy
 
+Installation
+-----------
+| sudo apt install git
+| git clone https://github.com/keigan-motor/pykeigan_motor
+| cd pykeigan_motor
+| python setup.py install
+
+
 USB Serial
 -----------
 .. code-block:: python
