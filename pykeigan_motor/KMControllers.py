@@ -548,10 +548,11 @@ class BLEController(Controller):
     def read_imu_measurement(self):
         """
         Get the x,y,z axis acceleration, temperature, and anguler velocities around x,y,z axis
-        and store them to 'accel_x', 'accel_y', 'accel_z' in g(9.80665 m/s^2), 'temp' in degree Celsius, 'gyro_x', 'gyro_y', and 'gyro_z' in rad/sec.
+        and store them to 'accel_x', 'accel_y', 'accel_z' in g(9.80665 m/s^2), 'temp' in degree Celsius, 'gyro_x', 'gyro_y', and 'gyro_z' in rad/sec. Need to call enableIMU() before calling this function.
         """
-        self.enableIMU()
         ba=self.dev.readCharacteristic(self.motor_imu_measurement_handle)
+        if len(ba)!=14:
+            raise "Reading imu values failed. Did you call enableIMU() beforehand?")
         self.accel_x=bytes2int16_t(ba[0:2])* 2.0 / 32767
         self.accel_y=bytes2int16_t(ba[2:4])* 2.0 / 32767
         self.accel_z=bytes2int16_t(ba[4:6])* 2.0 / 32767
