@@ -552,7 +552,7 @@ class BLEController(Controller):
         """
         ba=self.dev.readCharacteristic(self.motor_imu_measurement_handle)
         if len(ba)!=14:
-            raise "Reading imu values failed. Did you call enableIMU() beforehand?")
+            raise ValueError("Reading imu values failed. Did you call enableIMU() beforehand?")
         self.accel_x=bytes2int16_t(ba[0:2])* 2.0 / 32767
         self.accel_y=bytes2int16_t(ba[2:4])* 2.0 / 32767
         self.accel_z=bytes2int16_t(ba[4:6])* 2.0 / 32767
