@@ -566,7 +566,7 @@ class BLEController(Controller):
         return bytes2float(ba[4:8])
 
     def __read_uint8_data(self,ba):
-        return bytes2uint8_t(ba[4])
+        return bytes2uint8_t(ba[4:5])
 
     def __read_rgb_data(self,ba):
         return (ba[4],ba[5],ba[6])
