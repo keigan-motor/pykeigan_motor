@@ -9,6 +9,12 @@ At present we support Linux only, because this library depends on bluepy(Python 
 
 https://github.com/IanHarvey/bluepy
 
+Requirement
+-----------
+- python <3.5
+- bluepy
+- serial
+
 Installation
 -----------
 | sudo apt install git
