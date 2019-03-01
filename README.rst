@@ -12,7 +12,7 @@ https://github.com/IanHarvey/bluepy
 Requirement
 -----------
 - python ≥3.5
-- bluepy
+- bluepy (Bluetooth supports Linux only)
 - serial
 
 Installation
@@ -33,7 +33,7 @@ USB Serial
   dev.speed(1.0)
   dev.runForward()
 
-BLE
+BLE (Bluetooth supports Linux only)
 ----
 .. code-block:: python
 
