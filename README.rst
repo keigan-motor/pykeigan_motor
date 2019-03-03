@@ -9,8 +9,9 @@ At present we support Linux only, because this library depends on bluepy(Python 
 
 https://github.com/IanHarvey/bluepy
 
-Requirement
+Requirements
 -----------
+- Linux (for bluepy)
 - python ≥3.5
 - bluepy
 - pyserial
