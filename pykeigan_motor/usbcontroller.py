@@ -24,7 +24,6 @@ class USBController(base.Controller):
         #self.on_receive_serial_data_cb = False #info::[harada]CB名変更on_receive_serial_data_cb->on_motor_measurement_value_cb
         self.on_motor_measurement_value_cb = False
         self.on_motor_connection_error_cb = False
-        # info:[harada]↓↓USB通知インターフェースの切り替えは手動だとインスタンス生成時に自動実行するようにコンストラクタに設定しました。レジスタに保存しないのでモーター再起動でデフォルトに戻ります。利便性を考えるとこちらの方が良いかと思いますがいかがでしょう？懸念等、意見があればお知らせ下さい
         self.set_interface(self.interface_type['USB'] + self.interface_type['BTN'])
     def connect(self):
         """
@@ -211,7 +210,7 @@ class USBController(base.Controller):
         else:  # Unknown data
             return False
 
-    def __read_setting_value(self, comm, validation_threshold=1.0):
+    def _read_setting_value(self, comm, validation_threshold=1.0):
         float_value_comms = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21,
                              0x5B]
         valid_comms = [0x05, 0x3A, 0x46, 0x47, 0x9A]
@@ -261,66 +260,3 @@ class USBController(base.Controller):
 
     def read_imu_measurement(self):
         return self.__read_measurement_value(0xB5)
-
-    def read_maxSpeed(self):
-        return self.__read_setting_value(0x02)
-
-    def read_minSpeed(self):
-        return self.__read_setting_value(0x03)
-
-    def read_curveType(self):
-        return self.__read_setting_value(0x05)
-
-    def read_acc(self):
-        return self.__read_setting_value(0x07)
-
-    def read_dec(self):
-        return self.__read_setting_value(0x08)
-
-    def read_maxTorque(self):
-        return self.__read_setting_value(0x0E)
-
-    def read_qCurrentP(self):
-        return self.__read_setting_value(0x18)
-
-    def read_qCurrentI(self):
-        return self.__read_setting_value(0x19)
-
-    def read_qCurrentD(self):
-        return self.__read_setting_value(0x1A)
-
-    def read_speedP(self):
-        return self.__read_setting_value(0x1B)
-
-    def read_speedI(self):
-        return self.__read_setting_value(0x1C)
-
-    def read_speedD(self):
-        return self.__read_setting_value(0x1D)
-
-    def read_positionP(self):
-        return self.__read_setting_value(0x1E)
-
-    def read_positionI(self):
-        return self.__read_setting_value(0x1F)
-
-    def read_positionD(self):
-        return self.__read_setting_value(0x20)
-
-    def read_posControlThreshold(self):
-        return self.__read_setting_value(0x21)
-
-    def read_ownColor(self):
-        return self.__read_setting_value(0x3A)
-
-    def read_deviceName(self):
-        return self.__read_setting_value(0x46)
-
-    def read_deviceInfo(self):
-        return self.__read_setting_value(0x47)
-
-    def read_positionOffset(self):
-        return self.__read_setting_value(0x5B)
-
-    def read_status(self):
-        return self.__read_setting_value(0x9A)
