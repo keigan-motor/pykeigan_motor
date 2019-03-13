@@ -21,9 +21,11 @@ class USBController(base.Controller):
         self.auto_serial_reading = False
         self.port = port
         self.serial = serial.Serial(port, 115200, 8, 'N', 1, None, False, True)
-        self.on_receive_serial_data_cb = False
+        #self.on_receive_serial_data_cb = False #info::[harada]CB名変更on_receive_serial_data_cb->on_motor_measurement_value_cb
+        self.on_motor_measurement_value_cb = False
         self.on_motor_connection_error_cb = False
-
+        # info:[harada]↓↓USB通知インターフェースの切り替えは手動だとインスタンス生成時に自動実行するようにコンストラクタに設定しました。レジスタに保存しないのでモーター再起動でデフォルトに戻ります。利便性を考えるとこちらの方が良いかと思いますがいかがでしょう？懸念等、意見があればお知らせ下さい
+        self.set_interface(self.interface_type['USB'] + self.interface_type['BTN'])
     def connect(self):
         """
         Open the USB port.
@@ -115,7 +117,7 @@ class USBController(base.Controller):
         '''
         self.serial_buf += rd
         # ------------------------------#
-        #   プリアンブル検出ロジック　#todo::バイト配列->バイト文字列で扱うように変更
+        #   プリアンブル検出ロジック　
         # ------------------------------#
 
         bf_len = len(self.serial_buf)
@@ -136,12 +138,10 @@ class USBController(base.Controller):
                     if self.serial_buf[ie + 2:ie+4] == b'\x0d\x0a':
                         crc = self.serial_buf[ie] << 8 | self.serial_buf[ie + 1]  # CRC
                         payload = self.serial_buf[i + 4: ie]  # 情報バイト
-                        val = self.__serialdataParse(payload)
+                        self.__serialdataParse(payload)
                         slice_idx = ie + 4
-                        i = ie + 3##info::"i"がスコープ外に代入されない可能性？？ todo::bugの可能性? 要確認 (Thread部分で偶にクラッシュの報告あり)->ループをwhile文に書き換え
+                        i = ie + 3
                         is_pre = False
-                        if (val and callable(self.on_receive_serial_data_cb)):
-                            self.on_receive_serial_data_cb(val)
                         break
             i += 1
         self.serial_buf = self.serial_buf[slice_idx:]
@@ -158,6 +158,11 @@ class USBController(base.Controller):
             torque = bytes2float(payload[8:12])
             self.__motor_measurement_value = {'position': position, 'velocity': velocity, 'torque': torque,
                                               'received_unix_time': time.time()}
+
+            # info:[harada]回転情報のcallbackは、ここで呼び出すように変更しました CB名変更on_receive_serial_data_cb->on_motor_measurement_value_cb
+            if (callable(self.on_motor_measurement_value_cb)):
+                self.on_motor_measurement_value_cb(self.__motor_measurement_value)
+            return True
         elif datatype == 0xB5:  # IMU情報受信
             accel_x = bytes2int16_t(payload[0:2]) * 2.0 / 32767
             accel_y = bytes2int16_t(payload[2:4]) * 2.0 / 32767
@@ -169,6 +174,7 @@ class USBController(base.Controller):
             self.__imu_measurement_value = {'accel_x': accel_x, 'accel_y': accel_y, 'accel_z': accel_z, 'temp': temp,
                                             'gyro_x': gyro_x, 'gyro_y': gyro_y, 'gyro_z': gyro_z,
                                             'received_unix_time': time.time()}
+            return True
         elif datatype == 0x40:
             float_value_comms = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
                                  0x21, 0x5B]
@@ -226,6 +232,7 @@ class USBController(base.Controller):
             raise ValueError("No data received")
 
     def __read_measurement_value(self, comm, validation_threshold=1.0):
+        measurement_value=None
         if not (comm in [0xB4, 0xB5]):
             raise ValueError("Unknown Command")
         if not self.auto_serial_reading:
