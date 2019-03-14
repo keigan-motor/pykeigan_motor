@@ -1,41 +1,8 @@
 # -*- coding: utf-8 -*-
 import time
 from pykeigan_motor import usbcontroller
-import threading
 
-from functools import wraps
-
-##############遅延実行関数用#####################
-def delay(delay=0.):
-    """
-    Decorator delaying the execution of a function for a while.
-    """
-    def wrap(f):
-        @wraps(f)
-        def delayed(*args, **kwargs):
-            timer = threading.Timer(delay, f, args=args, kwargs=kwargs)
-            timer.start()
-        return delayed
-    return wrap
-class Timer():
-    toClearTimer = False
-    def setTimeout(self, fn, time):
-        isInvokationCancelled = False
-        @delay(time)
-        def some_fn():
-                if (self.toClearTimer is False):
-                        fn()
-                else:
-                    print('Invokation is cleared!')
-        some_fn()
-        return isInvokationCancelled
-    def setClearTimer(self):
-        self.toClearTimer = True
-########################################
-timer = Timer()
-
-
-##回転受信時callback
+##info::モーター回転情報受信callback
 def on_motor_measurement_value_cb(measurement):
     print('measurement {} '.format(measurement))
 
@@ -43,9 +10,9 @@ def on_motor_measurement_value_cb(measurement):
 dev=usbcontroller.USBController('/dev/ttyUSB0')
 
 
+#USB接続でモーター回転情報(on_motor_measurement_value_cb)を受信する場合予めdev.set_interfaceでUSBに経路を指定する必要がある
+#dev.set_interface(dev.interface_type['USB'] + dev.interface_type['BTN'])#info:USB通知モードはインスタンス生成時に自動実行するようにコンストラクタに設定済み
 #dev.on_motor_measurement_value_cb=on_motor_measurement_value_cb
-# 0b10011001  # 回転情報 USB通知モードは使用前に都度設定
-#dev.set_interface(dev.interface_type['USB'] + dev.interface_type['BTN'])#info: インスタンス生成時に自動実行するようにコンストラクタに設定済み
 #dev.start_auto_serial_reading()#回転受信の開始
 #motor.saveAllRegisters() #info: USBモードは使用前に都度設定(保存をしない場合、再起動でbleに戻る)
 
@@ -54,9 +21,64 @@ dev.enable_action()
 dev.set_speed(1.0)
 dev.run_forward()
 
-########################
-## テスト
-########################
+#---------------------------
+#    テスト
+#---------------------------
+
+print('#######テスト開始######')
+print('##回転情報')
+
+#info::USB接続でモーター回転情報(on_motor_measurement_value_cb)を受信する場合予めdev.set_interfaceでUSBに経路を指定する必要がある
+#info::そして、dev.set_interfaceはインスタンス生成時に自動実行するようにコンストラクタに設定(変更)済み
+dev.on_motor_measurement_value_cb=on_motor_measurement_value_cb
+dev.start_auto_serial_reading()#回転受信の開始
+time.sleep(3)
+dev.finish_auto_serial_reading()
+time.sleep(0.5)
+
+#---------------------------
+#   トルク設定
+#---------------------------
+defTorque=dev.read_maxTorque()
+dev.set_max_torque(0.1)
+chTorque=dev.read_maxTorque()
+print('##トルク設定 dev.read_maxTorque:{} --> {}'.format(defTorque,chTorque))
+time.sleep(3)
+print('##トルク復帰>3.0')
+dev.set_max_torque(10.0)
+time.sleep(3)
+
+
+############
+# import threading
+# ##############遅延実行関数用#####################
+# def delay(delay=0.):
+#     """
+#     Decorator delaying the execution of a function for a while.
+#     """
+#     def wrap(f):
+#         @wraps(f)
+#         def delayed(*args, **kwargs):
+#             timer = threading.Timer(delay, f, args=args, kwargs=kwargs)
+#             timer.start()
+#         return delayed
+#     return wrap
+# class Timer():
+#     toClearTimer = False
+#     def setTimeout(self, fn, time):
+#         isInvokationCancelled = False
+#         @delay(time)
+#         def some_fn():
+#                 if (self.toClearTimer is False):
+#                         fn()
+#                 else:
+#                     print('Invokation is cleared!')
+#         some_fn()
+#         return isInvokationCancelled
+#     def setClearTimer(self):
+#         self.toClearTimer = True
+# ########################################
+# timer = Timer()
 
 # print('#######テスト開始######')
 #
@@ -86,26 +108,6 @@ dev.run_forward()
 #
 # ##
 # #test1()
-
-print('##回転情報')
-dev.on_motor_measurement_value_cb=on_motor_measurement_value_cb
-dev.start_auto_serial_reading()
-time.sleep(3)
-dev.finish_auto_serial_reading()
-time.sleep(0.5)
-print('##トルク設定> 0.1')
-dev.set_max_torque(0.1)
-time.sleep(3)
-print('##トルク復帰>3.0')
-dev.set_max_torque(3.0)
-time.sleep(3)
-print('##トルク情報')
-print('read_maxTorque :'.format(dev.read_maxTorque())) #info:エラー
-time.sleep(2)
-
-
-############
-
 
 #
 #
