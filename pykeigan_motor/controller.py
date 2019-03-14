@@ -651,3 +651,69 @@ class Controller:
         """
         command=b'\xFD'
         self._run_command(command+identifier+crc16,'motor_control')
+
+    def read_max_speed(self):
+        return self._read_setting_value(0x02)
+
+    def read_min_speed(self):
+        return self._read_setting_value(0x03)
+
+    def read_curve_type(self):
+        return self._read_setting_value(0x05)
+
+    def read_acc(self):
+        return self._read_setting_value(0x07)
+
+    def read_dec(self):
+        return self._read_setting_value(0x08)
+
+    def read_max_torque(self):
+        return self._read_setting_value(0x0E)
+
+    def read_qcurrent_p(self):
+        return self._read_setting_value(0x18)
+
+    def read_qcurrent_i(self):
+        return self._read_setting_value(0x19)
+
+    def read_qcurrent_d(self):
+        return self._read_setting_value(0x1A)
+
+    def read_speed_p(self):
+        return self._read_setting_value(0x1B)
+
+    def read_speed_i(self):
+        return self._read_setting_value(0x1C)
+
+    def read_speed_d(self):
+        return self._read_setting_value(0x1D)
+
+    def read_position_p(self):
+        return self._read_setting_value(0x1E)
+
+    def read_position_i(self):
+        return self._read_setting_value(0x1F)
+
+    def read_position_d(self):
+        return self._read_setting_value(0x20)
+
+    def read_pos_control_threshold(self):
+        return self._read_setting_value(0x21)
+
+    def read_own_color(self):
+        return self._read_setting_value(0x3A)
+
+    def read_device_name(self):
+        return self._read_setting_value(0x46)
+
+    def read_deviceInfo(self):
+        return self._read_setting_value(0x47)
+
+    def read_position_offset(self):
+        return self._read_setting_value(0x5B)
+
+    def read_status(self):
+        return self._read_setting_value(0x9A)
+
+    def _read_setting_value(self, comm):#dummy
+        pass

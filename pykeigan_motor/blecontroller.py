@@ -99,7 +99,7 @@ class BLEController(base.Controller):
                 "flash_memory_state": self.flash_memory_states[bytes2uint8_t(ba[5:6])],
                 "motor_control_mode": self.motor_control_modes[bytes2uint8_t(ba[6:7])]}
 
-    def __read_setting_value(self, comm):
+    def _read_setting_value(self, comm):
         float_value_comms = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21,
                              0x5B]
         valid_comms = [0x05, 0x3A, 0x46, 0x47, 0x9A]
@@ -123,66 +123,3 @@ class BLEController(base.Controller):
         if comm == 0x9A:
             return self.__read_status_data(ba)
         return ba
-
-    def read_maxSpeed(self):
-        return self.__read_setting_value(0x02)
-
-    def read_minSpeed(self):
-        return self.__read_setting_value(0x03)
-
-    def read_curveType(self):
-        return self.__read_setting_value(0x05)
-
-    def read_acc(self):
-        return self.__read_setting_value(0x07)
-
-    def read_dec(self):
-        return self.__read_setting_value(0x08)
-
-    def read_maxTorque(self):
-        return self.__read_setting_value(0x0E)
-
-    def read_qCurrentP(self):
-        return self.__read_setting_value(0x18)
-
-    def read_qCurrentI(self):
-        return self.__read_setting_value(0x19)
-
-    def read_qCurrentD(self):
-        return self.__read_setting_value(0x1A)
-
-    def read_speedP(self):
-        return self.__read_setting_value(0x1B)
-
-    def read_speedI(self):
-        return self.__read_setting_value(0x1C)
-
-    def read_speedD(self):
-        return self.__read_setting_value(0x1D)
-
-    def read_positionP(self):
-        return self.__read_setting_value(0x1E)
-
-    def read_positionI(self):
-        return self.__read_setting_value(0x1F)
-
-    def read_positionD(self):
-        return self.__read_setting_value(0x20)
-
-    def read_posControlThreshold(self):
-        return self.__read_setting_value(0x21)
-
-    def read_ownColor(self):
-        return self.__read_setting_value(0x3A)
-
-    def read_deviceName(self):
-        return self.__read_setting_value(0x46)
-
-    def read_deviceInfo(self):
-        return self.__read_setting_value(0x47)
-
-    def read_positionOffset(self):
-        return self.__read_setting_value(0x5B)
-
-    def read_status(self):
-        return self.__read_setting_value(0x9A)
