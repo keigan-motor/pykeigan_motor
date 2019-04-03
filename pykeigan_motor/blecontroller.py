@@ -4,6 +4,7 @@
 Created on Thu Jan 10 09:13:24 2018
 
 @author: takata@innovotion.co.jp
+@author: harada@keigan.co.jp
 """
 from pykeigan_motor import controller as base
 import struct, time
