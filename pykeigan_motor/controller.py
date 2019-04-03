@@ -4,6 +4,7 @@
 Created on Thr Jan 10 09:13:24 2018
 
 @author: takata@innovotion.co.jp
+@author: harada@keigan.co.jp
 """
 import serial,struct,threading,atexit,time
 from bluepy import btle
@@ -190,7 +191,17 @@ class Controller:
 
     def set_motor_measurement_settings(self,flag,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
-        ToDo
+        Set the notification setting of motor measurement values.
+        -----------
+        bit7: -
+        bit6: -
+        bit5: -
+        bit4: -
+        bit3: -
+        bit2: -
+        bit1: Notification of motor measurement (1:ON, 0:OFF)
+        bit0: To start Notification of motor measurement when booting(1:ON, 0:OFF)
+        -----------
         """
         command=b'\x2D'
         values=uint8_t2bytes(flag)
@@ -247,7 +258,17 @@ class Controller:
 
     def set_imu_measurement_settings(self,flag,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
-        ToDo
+        Set the notification setting of IMU.
+        -----------
+        bit7: -
+        bit6: -
+        bit5: -
+        bit4: -
+        bit3: -
+        bit2: -
+        bit1: Notification of IMU (1:ON, 0:OFF)
+        bit0: To start Notification of IMU when booting(1:ON, 0:OFF)
+        -----------
         """
         command=b'\x3D'
         values=uint8_t2bytes(flag)
@@ -271,14 +292,14 @@ class Controller:
 
     def read_device_name(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
-        ToDo
+        Get the device name of the motor.
         """
         command=b'\x46'
         self._run_command(command+identifier+crc16,'motor_settings')
 
     def read_device_info(self,infotype,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
-        # TODO:
+        Get the device information of the motor.
         """
         command=b'\x47'
         values=uint8_t2bytes(infotype)

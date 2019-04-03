@@ -4,6 +4,7 @@
 Created on Thu Jan 10 09:13:24 2018
 
 @author: takata@innovotion.co.jp
+@author: harada@keigan.co.jp
 """
 from pykeigan_motor import controller as base
 import serial, struct, threading, atexit, time
@@ -21,10 +22,11 @@ class USBController(base.Controller):
         self.auto_serial_reading = False
         self.port = port
         self.serial = serial.Serial(port, 115200, 8, 'N', 1, None, False, True)
-        #self.on_receive_serial_data_cb = False #info::[harada]CB名変更on_receive_serial_data_cb->on_motor_measurement_value_cb
         self.on_motor_measurement_value_cb = False
         self.on_motor_connection_error_cb = False
         self.set_interface(self.interface_type['USB'] + self.interface_type['BTN'])
+        self.start_auto_serial_reading()
+
     def connect(self):
         """
         Open the USB port.
@@ -157,8 +159,6 @@ class USBController(base.Controller):
             torque = bytes2float(payload[8:12])
             self.__motor_measurement_value = {'position': position, 'velocity': velocity, 'torque': torque,
                                               'received_unix_time': time.time()}
-
-            # info:[harada]回転情報のcallbackは、ここで呼び出すように変更しました CB名変更on_receive_serial_data_cb->on_motor_measurement_value_cb
             if (callable(self.on_motor_measurement_value_cb)):
                 self.on_motor_measurement_value_cb(self.__motor_measurement_value)
             return True
@@ -220,7 +220,7 @@ class USBController(base.Controller):
         self.read_register(comm)
         time.sleep(0.15)
         if not self.auto_serial_reading:
-            self.__read_serial_data()
+            raise ValueError("Disabled reading serial data. Try calling start_serial_reading()")
         if comm in self.setting_values.keys():
             val, received_unix_time = self.setting_values[comm]
             if time.time() - received_unix_time < validation_threshold:
@@ -235,8 +235,7 @@ class USBController(base.Controller):
         if not (comm in [0xB4, 0xB5]):
             raise ValueError("Unknown Command")
         if not self.auto_serial_reading:
-            self.__read_serial_data()
-            time.sleep(0.15)
+            raise ValueError("Disabled reading serial data. Try calling start_serial_reading()")
         if comm == 0xB4:
             measurement_value = self.__motor_measurement_value
         elif comm == 0xB5:
