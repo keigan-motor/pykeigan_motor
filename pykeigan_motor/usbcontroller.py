@@ -12,14 +12,12 @@ from pykeigan_motor.utils import *
 
 
 class USBController(base.Controller):
-    def __init__(self, port='/dev/ttyUSB0'):
-        # signal.signal(signal.SIGINT, self.all_done)
-        # signal.signal(signal.SIGTERM, self.all_done)
+    def __init__(self, port='/dev/ttyUSB0',debug_mode=False):
+        self.DebugMode = debug_mode
         self.serial_buf = b''  # []
         self.setting_values = {}
         self.__motor_measurement_value = None
         self.__imu_measurement_value = None
-        self.auto_serial_reading = False
         self.port = port
         self.serial = serial.Serial(port, 115200, 8, 'N', 1, None, False, True)
         self.on_motor_measurement_value_cb = False
@@ -206,6 +204,9 @@ class USBController(base.Controller):
             else:
                 return False
         elif datatype == 0xBE:  # command log
+            if self.DebugMode:
+                if bytes2uint16_t(payload[6:8]) in self.error_codes.keys():
+                    print(payload[2],self.error_codes[bytes2uint16_t(payload[6:8])])
             return True
         else:  # Unknown data
             return False
@@ -235,23 +236,23 @@ class USBController(base.Controller):
         if not (comm in [0xB4, 0xB5]):
             raise ValueError("Unknown Command")
         if not self.auto_serial_reading:
-            raise ValueError("Disabled reading serial data. Try calling start_serial_reading()")
+            raise ValueError("Disabled reading serial data. Try calling start_serial_reading().")
         if comm == 0xB4:
             measurement_value = self.__motor_measurement_value
         elif comm == 0xB5:
             measurement_value = self.__imu_measurement_value
         if measurement_value is None:
             if comm == 0xB4:
-                raise ValueError("No data received. Try calling set_interface(dev.interface_type[\"USB\"]) or enable_continual_motor_measurement beforehand.")
+                raise ValueError("No data received. Try calling enable_continual_motor_measurement().")
             if comm == 0xB5:
-                raise ValueError("No data received. Try calling set_interface(dev.interface_type[\"USB\"]) or enable_continual_imu_measurement beforehand.")
+                raise ValueError("No data received. Try calling enable_continual_imu_measurement().")
         elif time.time() - measurement_value['received_unix_time'] < validation_threshold:
             return measurement_value
         else:
             if comm == 0xB4:
-                raise ValueError("No data within ", validation_threshold, " sec. Try calling set_interface(dev.interface_type[\"USB\"]) or enable_continual_motor_measurement beforehand.")
+                raise ValueError("No data within ", validation_threshold, " sec.")
             if comm == 0xB5:
-                raise ValueError("No data within ", validation_threshold, " sec. Try calling set_interface(dev.interface_type[\"USB\"]) or enable_continual_imu_measurement beforehand.")
+                raise ValueError("No data within ", validation_threshold, " sec.")
 
 
     def read_motor_measurement(self):
