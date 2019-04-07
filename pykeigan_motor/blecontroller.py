@@ -7,18 +7,18 @@ Created on Thu Jan 10 09:13:24 2018
 @author: harada@keigan.co.jp
 """
 from pykeigan_motor import controller as base
-import struct, time
+import struct, time,threading, atexit
 from bluepy import btle
 from pykeigan_motor.utils import *
 
 
 class BLEController(base.Controller):
-    def __init__(self, addr):
+    def __init__(self, addr,debug_mode=False):
         self.address = addr
         self.dev = btle.Peripheral(self.address, 'random')
         for v in self.dev.getCharacteristics():
             if v.uuid == 'f1400001-8936-4d35-a0ed-dfcd795baa8c':
-                self.motor_control_handle = v.getHandle()
+                self.motor_tx_handle = v.getHandle()
             if v.uuid == 'f1400003-8936-4d35-a0ed-dfcd795baa8c':
                 self.motor_led_handle = v.getHandle()
             if v.uuid == 'f1400004-8936-4d35-a0ed-dfcd795baa8c':
@@ -26,17 +26,60 @@ class BLEController(base.Controller):
             if v.uuid == 'f1400005-8936-4d35-a0ed-dfcd795baa8c':
                 self.motor_imu_measurement_handle = v.getHandle()
             if v.uuid == 'f1400006-8936-4d35-a0ed-dfcd795baa8c':
-                self.motor_settings_handle = v.getHandle()
+                self.motor_rx_handle = v.getHandle()
+        self.DebugMode=False
+        self.ble_lock=False
+        if debug_mode:
+            self.start_debug()
 
+    def start_command_log_capturing(self):
+        self.t = threading.Thread(target=self.__log_schedule_worker)
+        self.t.setDaemon(True)
+        self.t.start()
+        atexit.register(self.__all_done)
+
+    def __log_schedule_worker(self):
+        old_ba = None
+        while True:
+            time.sleep(200 / 1000)  # 200ms
+            if not self.ble_lock:
+                self.ble_lock=True
+                ba = self.dev.readCharacteristic(self.motor_rx_handle)
+                if ba[0] == 0xBE and len(ba)==14:
+                    if ba!=old_ba:
+                        old_ba = ba
+                        print(self.parse_command_log(ba))
+                self.ble_lock=False
+            if self.DebugMode == False:  # DebugModeがFalseで終了
+                break
+    def start_debug(self):
+        if self.DebugMode==False:
+            self.start_command_log_capturing()
+            self.DebugMode=True
+
+    def finish_debug(self):
+        self.DebugMode = False
+
+    def __all_done(self):
+        try:
+            if self.t.isAlive():
+                self.t.join(0.01)
+        except:
+            return
     def _run_command(self, val, characteristics=None):
-        if characteristics == 'motor_control':
-            self.dev.writeCharacteristic(self.motor_control_handle, val)
+        while self.ble_lock:
+            time.sleep(0.1)
+        self.ble_lock = True
+        if characteristics == 'motor_tx':
+            self.dev.writeCharacteristic(self.motor_tx_handle, val)
         elif characteristics == 'motor_led':
             self.dev.writeCharacteristic(self.motor_led_handle, val)
-        elif characteristics == 'motor_settings':
-            self.dev.writeCharacteristic(self.motor_settings_handle, val)
+        elif characteristics == 'motor_rx':
+            self.dev.writeCharacteristic(self.motor_rx_handle, val)
         else:
+            self.ble_lock = False
             raise ValueError('Invalid Characteristics')
+        self.ble_lock = False
 
     def connect(self):
         """
@@ -48,16 +91,24 @@ class BLEController(base.Controller):
         """
         Close the BLE connection.
         """
+        if self.DebugMode:
+            self.DebugMode = False
+            time.sleep(0.5)
         self.dev.disconnect()
 
     def read_motor_measurement(self):
         """
         Get the position, velocity, and torque and store them to the properties 'position' in rad, 'velocity' in rad/sec, and 'torque' in N.m.
         """
+        while self.ble_lock:
+            time.sleep(0.1)
+        self.ble_lock = True
         ba = self.dev.readCharacteristic(self.motor_measurement_handle)
+        self.ble_lock = False
         position = bytes2float(ba[0:4])
         velocity = bytes2float(ba[4:8])
         torque = bytes2float(ba[8:12])
+
         return {'position': position, 'velocity': velocity, 'torque': torque, 'received_unix_time': time.time()}
 
     def read_imu_measurement(self):
@@ -65,7 +116,11 @@ class BLEController(base.Controller):
         Get the x,y,z axis acceleration, temperature, and anguler velocities around x,y,z axis
         and store them to 'accel_x', 'accel_y', 'accel_z' in g(9.80665 m/s^2), 'temp' in degree Celsius, 'gyro_x', 'gyro_y', and 'gyro_z' in rad/sec. Need to call enableIMUMeasurement() before calling this function.
         """
+        while self.ble_lock:
+            time.sleep(0.1)
+        self.ble_lock = True
         ba = self.dev.readCharacteristic(self.motor_imu_measurement_handle)
+        self.ble_lock = False
         if len(ba) != 14:
             raise ValueError("Reading imu values failed. Did you call enableIMUMeasurement() beforehand?")
         accel_x = bytes2int16_t(ba[0:2]) * 2.0 / 32767
@@ -101,16 +156,21 @@ class BLEController(base.Controller):
                 "motor_control_mode": self.motor_control_modes[bytes2uint8_t(ba[6:7])]}
 
     def _read_setting_value(self, comm):
-        float_value_comms = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21,
-                             0x5B]
+        float_value_comms = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x5B]
         valid_comms = [0x05, 0x3A, 0x46, 0x47, 0x9A]
         valid_comms.extend(float_value_comms)
         if not (comm in valid_comms):
             raise ValueError("Unknown Command")
         self.read_register(comm)
-        ba = self.dev.readCharacteristic(self.motor_settings_handle)
+        while self.ble_lock:
+            time.sleep(0.1)
+        self.ble_lock = True
+        ba = self.dev.readCharacteristic(self.motor_rx_handle)
         while len(ba) == 6:
-            ba = self.dev.readCharacteristic(self.motor_settings_handle)
+            ba = self.dev.readCharacteristic(self.motor_rx_handle)
+        self.ble_lock = False
+        if ba[0]==0xBE:
+            raise ValueError("Reading Error")
         if comm in float_value_comms:
             return self.__read_float_data(ba)
         if comm == 0x05:
@@ -124,3 +184,6 @@ class BLEController(base.Controller):
         if comm == 0x9A:
             return self.__read_status_data(ba)
         return ba
+
+    def parse_command_log(self,ba):
+        return self.command_names[ba[3]],self.error_codes[bytes2uint16_t(ba[6:8])]

@@ -39,6 +39,9 @@ def uint32_t2bytes(uint32_value):
     val4=uint32_value-val1*256**3-val2*256**2-val3*256
     return struct.pack("BBBB",val1,val2,val3,val4)
 
+def bytes2uint32_t(ba):
+    return struct.unpack("BBBB",ba)[0]
+
 def bytes2uint16_t(ba):
     return struct.unpack("BB",ba)[0]
 
