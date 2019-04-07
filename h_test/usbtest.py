@@ -12,7 +12,7 @@ def on_motor_connection_error_cb(e):
 
 
 ##モーター接続処理
-dev=usbcontroller.USBController('/dev/ttyUSB0')
+dev=usbcontroller.USBController('/dev/ttyUSB0',True)
 dev.on_motor_connection_error_cb=on_motor_connection_error_cb
 
 #USB接続でモーター回転情報(on_motor_measurement_value_cb)を受信する場合予めdev.set_interfaceでUSBに経路を指定する必要がある
@@ -36,17 +36,19 @@ print('##回転情報')
 #info::USB接続でモーター回転情報(on_motor_measurement_value_cb)を受信する場合予めdev.set_interfaceでUSBに経路を指定する必要がある
 #info::そして、dev.set_interfaceはインスタンス生成時に自動実行するようにコンストラクタに設定(変更)済み
 dev.on_motor_measurement_value_cb=on_motor_measurement_value_cb
-dev.start_auto_serial_reading()#回転受信の開始
 time.sleep(3)
-dev.finish_auto_serial_reading()
-time.sleep(0.5)
+dev.on_motor_measurement_value_cb=False
+#dev.start_auto_serial_reading()#回転受信の開始
+#time.sleep(3)
+#dev.finish_auto_serial_reading()
+#time.sleep(0.5)
 
 #---------------------------
 #   トルク設定
 #---------------------------
-defTorque=dev.read_maxTorque()
+defTorque=dev.read_max_torque()
 dev.set_max_torque(0.1)
-chTorque=dev.read_maxTorque()
+chTorque=dev.read_max_torque()
 print('##トルク設定 dev.read_maxTorque:{} --> {}'.format(defTorque,chTorque))
 time.sleep(3)
 print('##トルク復帰>3.0')
@@ -55,18 +57,20 @@ time.sleep(3)
 
 
 while True:
-    inp=input('Stop with Any key >>')
+    inp=input('Command: t, d, or c >>')
     if inp == 't':
         dev.set_max_torque(0.2)
     elif inp == 'd':#情報の取得
         print('measurement {} '.format(dev.read_motor_measurement()))
-        print('read_device_info :'.format(dev.read_device_info(1)))
-        print('read_device_name :'.format(dev.read_device_name()))
-        print('read_maxTorque :'.format(dev.read_maxTorque()))
+        print('read_device_info : {} '.format(dev.read_device_info()))
+        print('read_device_name : {} '.format(dev.read_device_name()))
+        print('read_maxTorque : {} '.format(dev.read_max_torque()))
     elif inp == 'c':#初期状態に戻す
         dev.set_max_torque(10.0)
     elif inp !=None:
-        dev.stop_motor()
+        dev.free_motor()
+        dev.disconnect()
+        break
 
 
 ############
