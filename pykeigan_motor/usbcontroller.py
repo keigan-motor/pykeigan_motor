@@ -205,8 +205,7 @@ class USBController(base.Controller):
                 return False
         elif datatype == 0xBE:  # command log
             if self.DebugMode:
-                if bytes2uint16_t(payload[6:8]) in self.error_codes.keys():
-                    print(payload[2],self.error_codes[bytes2uint16_t(payload[6:8])])
+                print(self.command_names[payload[2]],self.error_codes[bytes2uint16_t(payload[6:8])])
             return True
         else:  # Unknown data
             return False
