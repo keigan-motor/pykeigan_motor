@@ -17,9 +17,8 @@ class LogNotificationDelegate(btle.DefaultDelegate):
         self.error_codes = error_codes
         btle.DefaultDelegate.__init__(self)
     def handleNotification(self, cHandle, data):
-        if cHandle!=21:
-            if data[0]==0xBE and len(data)==14:
-                print(self.command_names[data[3]],self.error_codes[bytes2uint16_t(data[6:8])])
+        if data[0]==0xBE and len(data)==14:
+            print(self.command_names[data[3]],self.error_codes[bytes2uint16_t(data[7:9])])
 
 class BLEController(base.Controller):
     def __init__(self, addr,debug_mode=False):
@@ -38,9 +37,9 @@ class BLEController(base.Controller):
                 self.motor_rx_handle = v.getHandle()
                 self.motor_rx_ccc_desc = v.getDescriptors(forUUID=0x2902)[0]
                 if debug_mode:
-                    self.motor_rx_ccc_desc.write(b'\x01\x00',True)
+                    self.motor_rx_ccc_desc.write(b'\x01',True)
                 else:
-                    self.motor_rx_ccc_desc.write(b'\x00\x00',True)
+                    self.motor_rx_ccc_desc.write(b'\x00',True)
 
         self.DebugMode=False
         if debug_mode:
@@ -161,8 +160,7 @@ class BLEController(base.Controller):
         self.read_register(comm)
         ba = self.dev.readCharacteristic(self.motor_rx_handle)
         while len(ba) == 6 or ba[0] == 0xBE:
-            if ba[0] == 0xBE:
-                print("got command log")
+            if ba[0] == 0xBE: #in the case where the last command log remains
                 self.read_register(comm)
             ba = self.dev.readCharacteristic(self.motor_rx_handle)
         if comm in float_value_comms:
