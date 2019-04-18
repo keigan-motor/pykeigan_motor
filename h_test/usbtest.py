@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import time
-from pykeigan_motor import usbcontroller
+from pykeigan import usbcontroller
 
 ##info::モーター回転情報受信callback
 def on_motor_measurement_value_cb(measurement):
