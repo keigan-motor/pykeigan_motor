@@ -23,14 +23,8 @@ Installation
 | git clone -b v2 https://github.com/keigan-motor/pykeigan_motor
 | cd pykeigan_motor
 | python setup.py install
-
-
 or
-
-| sudo apt install git
-| git clone -b v2 https://github.com/keigan-motor/pykeigan_motor
-| cd pykeigan_motor
-| python setup-usb.py install
+| python setup-usb.py install)
 
 USB Serial
 -----------
