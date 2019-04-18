@@ -5,11 +5,11 @@ You can control your Keigan Motor through USB Serial and BLE.
 
 https://www.keigan-motor.com/
 
-At present we support Linux only for BLE, because the BLE feature of this library depends on bluepy(Python interface to Bluetooth LE on Linux) by Mr. Ian Harvey:
+At present we support Linux only for BLE, because the BLE functions of this library depends on bluepy(Python interface to Bluetooth LE on Linux by Mr. Ian Harvey):
 
 https://github.com/IanHarvey/bluepy
 
-The USB serial feature should work on Windows and Mac too. Please use setup-usb.py to install.
+The USB serial functions should work on Windows and Mac too. Please use setup-usb.py to install.
 
 Requirements
 -----------
@@ -26,16 +26,22 @@ Installation
 
 USB Serial
 -----------
+You can get the unique ID of your Keigan Motor by
+| ls /dev/serial/by-id/
+Your Keigan Motor's ID should be like 'usb-FTDI_FT230X_Basic_UART_DM00XXXX-if00-port0'.
+To use your Keigan Motor through USB serial, you need to add R/W permission to it.
+| sudo chmod 666 /dev/serial/by-id/usb-FTDI_FT230X_Basic_UART_DM00xxxx-if00-port0
+
 .. code-block:: python
 
   from pykeigan import usbcontroller
-  dev=usbcontroller.USBContoller('/dev/ttyUSB0')
+  dev=usbcontroller.USBContoller('/dev/serial/by-id/usb-FTDI_FT230X_Basic_UART_DM00xxxx-if00-port0')
   dev.enable_action()
   dev.set_speed(1.0)
   dev.run_forward()
 
 BLE
-----
+-----------
 .. code-block:: python
 
   from pykeigan import blecontroller
@@ -43,3 +49,11 @@ BLE
   dev.enable_action()
   dev.set_speed(1.0)
   dev.run_forward()
+  
+Release Notes
+-----------
+Release 2.0.0
+- Method Names Renewal
+- Added Debug Mode
+- Added Data Acquisition on USB serial
+- Added Windows and Mac Support for USB serial
