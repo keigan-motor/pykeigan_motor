@@ -9,7 +9,7 @@ At present we support Linux only for BLE, because the BLE feature of this librar
 
 https://github.com/IanHarvey/bluepy
 
-You can use USB serial feature on Linux, Windows and Mac.
+You can use USB serial feature on Linux, Windows and Mac. Please use setup-usb.py to install.
 
 Requirements
 -----------
@@ -18,11 +18,17 @@ bluepy
 
 Installation
 -----------
-| pip install pykeigan
+| sudo apt install git
+| git clone https://github.com/keigan-motor/pykeigan_motor
+| cd pykeigan_motor
+| python setup.py install
 
-or 
+or
 
-| pip install pykeigan-usb
+| sudo apt install git
+| git clone https://github.com/keigan-motor/pykeigan_motor
+| cd pykeigan_motor
+| python setup-usb.py install
 
 USB Serial
 -----------
