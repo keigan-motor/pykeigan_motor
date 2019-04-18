@@ -9,13 +9,13 @@ At present we support Linux only for BLE, because the BLE feature of this librar
 
 https://github.com/IanHarvey/bluepy
 
-You can use USB serial feature on Linux, Windows and Mac. Please use setup-usb.py to install.
+The USB serial feature should work on Windows and Mac too. Please use setup-usb.py to install.
 
 Requirements
 -----------
-- python >=3.5
-- pyserial >=3.4
-- bluepy >=1.1.4
+- python >= 3.5
+- pyserial >= 3.4
+- bluepy >= 1.1.4
 
 Installation
 -----------
@@ -50,4 +50,3 @@ BLE
   dev.enable_action()
   dev.set_speed(1.0)
   dev.run_forward()
-
