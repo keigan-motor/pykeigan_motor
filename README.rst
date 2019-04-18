@@ -19,7 +19,7 @@ Requirements
 
 Installation
 -----------
-For Linux ::
+For Linux::
   sudo apt install git
   git clone -b v2 https://github.com/keigan-motor/pykeigan_motor
   cd pykeigan_motor
@@ -28,9 +28,7 @@ For Linux ::
 USB Serial
 -----------
 | You can get the unique ID of your Keigan Motor by::
-
     ls /dev/serial/by-id/
-
 | Your Keigan Motor's ID should be like 'usb-FTDI_FT230X_Basic_UART_DM00XXXX-if00-port0'.  
 | To use your Keigan Motor through USB serial, you need to add R/W permission to it.::
 
