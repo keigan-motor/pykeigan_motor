@@ -24,6 +24,7 @@ Installation
 | cd pykeigan_motor
 | python setup.py install
 
+
 or
 
 | sudo apt install git
