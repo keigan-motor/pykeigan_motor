@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import time
-from pykeigan_motor import blecontroller
+from pykeigan import blecontroller
 #BLEController
 dev=blecontroller.BLEController("ee:f4:36:61:81:3f")
 dev.enable_action()
