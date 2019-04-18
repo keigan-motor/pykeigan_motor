@@ -13,8 +13,9 @@ You can use USB serial feature on Linux, Windows and Mac. Please use setup-usb.p
 
 Requirements
 -----------
-- pyserial 1.1.4 or above
-- bluepy 3.4 or above
+- python >=3.5
+- pyserial >=3.4
+- bluepy >=1.1.4
 
 Installation
 -----------
