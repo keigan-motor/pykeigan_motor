@@ -35,7 +35,7 @@ USB Serial
     ls /dev/serial/by-id/
 
 | Your Keigan Motor's ID should be like 'usb-FTDI_FT230X_Basic_UART_DM00XXXX-if00-port0'.  
-| To use your Keigan Motor through USB serial, you need to add R/W permission to it.::
+| To use your Keigan Motor through USB serial, you need to add R/W permission to it.
 ::
 
     sudo chmod 666 /dev/serial/by-id/usb-FTDI_FT230X_Basic_UART_DM00xxxx-if00-port0  
