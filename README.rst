@@ -29,7 +29,8 @@ For Linux
 
 USB Serial
 -----------
-| You can get the unique ID of your Keigan Motor by
+| To connect your Keigan Motor through USB serial, you need to know the mounted path.
+| You can get the unique path of your Keigan Motor by
 ::
 
     ls /dev/serial/by-id/
@@ -38,7 +39,9 @@ USB Serial
 | To use your Keigan Motor through USB serial, you need to add R/W permission to it.
 ::
 
-    sudo chmod 666 /dev/serial/by-id/usb-FTDI_FT230X_Basic_UART_DM00xxxx-if00-port0  
+    sudo chmod 666 /dev/serial/by-id/usb-FTDI_FT230X_Basic_UART_DM00XXXX-if00-port0  
+
+Simplest Sample Code. Rotate counter-clockwise with 1.0 rad/sec.
 
 .. code-block:: python
 
@@ -48,8 +51,24 @@ USB Serial
   dev.set_speed(1.0)
   dev.run_forward()
 
-BLE
+BLE (for Linux Only)
 -----------
+| You need to know the MAC address of you Keigan Motor for BLE connection.
+| For example, you can use the following simple script. Please run with sudo.
+KM1Scan.py
+
+.. code-block:: python
+
+  from bluepy.btle import Scanner
+  scanner=Scanner()
+  devices=scanner.scan(5.0)
+  for dev in devices:
+      for (adtype, desc, value) in dev.getScanData():
+          if desc=="Complete Local Name" and "KM-1" in value:
+              print(value,":",dev.addr)
+
+Simplest Sample Code. Rotate counter-clockwise with 1.0 rad/sec.
+
 .. code-block:: python
 
   from pykeigan import blecontroller
