@@ -80,6 +80,7 @@ Simplest Sample Code. Rotate counter-clockwise with 1.0 rad/sec.
 Release Notes
 -----------
 Release 2.0.0
+
 - Method Names Renewal
 - Added Debug Mode
 - Added Data Acquisition on USB serial
