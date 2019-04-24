@@ -51,11 +51,11 @@ def bytes2uint8_t(ba):
 def bytes2int16_t(ba):
     return struct.unpack(">h",ba)[0]
 
-def degree2radian(degree):
+def deg2rad(degree):
     return degree*0.017453292519943295
-def radian2degree(radian):
+def rad2deg(radian):
     return radian/ 0.017453292519943295
-def rpm2radian_per_sec(rpm):
+def rpm2rad_per_sec(rpm):
     return rpm *0.10471975511965977
-def radian_per_sec2rpm(radian_per_sec):
+def rad_per_sec2rpm(radian_per_sec):
     return radian_per_sec/0.10471975511965977
