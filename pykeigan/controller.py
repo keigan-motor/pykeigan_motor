@@ -80,8 +80,9 @@ class Controller:
         Set the maximum torque to the positive 'max_torque' in N.m.
         """
         command=b'\x0E'
-        #values=float2bytes(max_torque)
-        values = float2bytes(abs(max_torque))#info::Motor farm bug. Runaway with negative numbers
+        if max_torque < 0:
+            raise ValueError("Value out of range")
+        values=float2bytes(max_torque)
         self._run_command(command+identifier+values+crc16,'motor_rx')
 
     def set_teaching_interval(self,interval_ms,identifier=b'\x00\x00',crc16=b'\x00\x00'):
