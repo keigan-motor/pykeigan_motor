@@ -18,10 +18,13 @@ class USBController(base.Controller):
         self.setting_values = {}
         self.__motor_measurement_value = None
         self.__imu_measurement_value = None
+        self.__motor_log_value = None
         self.port = port
         self.serial = serial.Serial(port, 115200, 8, 'N', 1, None, False, True)
         self.on_motor_measurement_value_cb = False
+        self.on_motor_imu_measurement_cb = False
         self.on_motor_connection_error_cb = False
+        self.on_motor_log_cb = False
         self.set_interface(self.interface_type['USB'] + self.interface_type['BTN'])
         self.start_auto_serial_reading()
 
@@ -171,6 +174,8 @@ class USBController(base.Controller):
             self.__imu_measurement_value = {'accel_x': accel_x, 'accel_y': accel_y, 'accel_z': accel_z, 'temp': temp,
                                             'gyro_x': gyro_x, 'gyro_y': gyro_y, 'gyro_z': gyro_z,
                                             'received_unix_time': time.time()}
+            if (callable(self.on_motor_imu_measurement_cb)):
+                self.on_motor_imu_measurement_cb(self.__imu_measurement_value)
             return True
         elif datatype == 0x40:
             float_value_comms = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
@@ -204,8 +209,11 @@ class USBController(base.Controller):
             else:
                 return False
         elif datatype == 0xBE:  # command log
+            self.__motor_log_value={'command_names':self.command_names[payload[2]],'error_codes':self.error_codes[bytes2uint16_t(payload[6:8])]}
+            if (callable(self.on_motor_log_cb)):
+                self.on_motor_log_cb(self.__motor_log_value)
             if self.DebugMode:
-                print(self.command_names[payload[2]],self.error_codes[bytes2uint16_t(payload[6:8])])
+                print(self.__motor_log_value['command_names'],self.__motor_log_value['error_codes'])
             return True
         else:  # Unknown data
             return False

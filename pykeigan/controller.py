@@ -80,7 +80,8 @@ class Controller:
         Set the maximum torque to the positive 'max_torque' in N.m.
         """
         command=b'\x0E'
-        values=float2bytes(max_torque)
+        #values=float2bytes(max_torque)
+        values = float2bytes(abs(max_torque))#info::Motor farm bug. Runaway with negative numbers
         self._run_command(command+identifier+values+crc16,'motor_rx')
 
     def set_teaching_interval(self,interval_ms,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -419,29 +420,32 @@ class Controller:
         values=float2bytes(torque)
         self._run_command(command+identifier+values+crc16,'motor_tx')
 
-    def move_to_pos_until_arrival(self,position,speed=None,identifier=b'\x00\x00',crc16=b'\x00\x00'):
-        """
-        Move to the absolute 'position' at the 'speed'. If the speed is None, move at the speed set by 0x58: set_speed. This command is active until arriving the position. The next command execution waits in a queue.
-        """
-        if speed is not None:
-            command=b'\x75'
-            values=float2bytes(position)+float2bytes(speed)
-        else:
-            command=b'\x76'
-            values=float2bytes(position)
-        self._run_command(command+identifier+values+crc16,'motor_tx')
+    # def move_to_pos_until_arrival(self,position,speed=None,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+    #     """
+    #     todo::1.86 farmBug
+    #     Move to the absolute 'position' at the 'speed'. If the speed is None, move at the speed set by 0x58: set_speed. This command is active until arriving the position. The next command execution waits in a queue.
+    #     """
+    #     if speed is not None:
+    #         command=b'\x75'
+    #         values=float2bytes(position)+float2bytes(speed)
+    #     else:
+    #         command=b'\x76'
+    #         values=float2bytes(position)
+    #     self._run_command(command+identifier+values+crc16,'motor_tx')
 
-    def move_by_dist_until_arrival(self,position,speed=None,identifier=b'\x00\x00',crc16=b'\x00\x00'):
-        """
-        Move the motor by the specified relative 'distance' from the current position at the 'speed'. If the speed is None, move at the speed set by 0x58: set_speed. This command is active until arriving the position. The next command execution waits in a queue.
-        """
-        if speed is None:
-            command=b'\x77'
-            values=float2bytes(position)+float2bytes(speed)
-        else:
-            command=b'\x78'
-            values=float2bytes(position)
-        self._run_command(command+identifier+values+crc16,'motor_tx')
+    # def move_by_dist_until_arrival(self,position,speed=None,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+    #     """
+    #     todo::1.86 farmBug
+    #     Move the motor by the specified relative 'distance' from the current position at the 'speed'. If the speed is None, move at the speed set by 0x58: set_speed. This command is active until arriving the position. The next command execution waits in a queue.
+    #     """
+    #     if speed is not None:
+    #         command = b'\x77'
+    #         values = float2bytes(position) + float2bytes(speed)
+    #     else:
+    #         command = b'\x78'
+    #         values = float2bytes(position)
+    #
+    #     self._run_command(command+identifier+values+crc16,'motor_tx')
 
     def start_doing_taskset(self,index,repeating,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
