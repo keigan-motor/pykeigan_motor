@@ -10,11 +10,11 @@ with open('MIT-LICENSE') as f:
     license = f.read()
 
 setup(
-    name='pykeigan_motor',
+    name='pykeigan_motor_usb',
     version='2.0.0',
-    description='Python module for Keigan Motors',
+    description='Python module for Keigan Motors on USB',
     long_description=readme,
-    install_requires=['pyserial','bluepy'],
+    install_requires=['pyserial'],
     author='Tomohiro Takata, Hiroshi Harada',
     author_email='takata@innovotion.co.jp, harada@keigan.co.jp',
     url='https://github.com/keigan-motor/pykeigan_motor',

@@ -1,45 +1,87 @@
-Python Library on Linux for Keigan Motor
+Python Library for Keigan Motor
 =========================================
 
 You can control your Keigan Motor through USB Serial and BLE.
 
 https://www.keigan-motor.com/
 
-At present we support Linux only, because this library depends on bluepy(Python interface to Bluetooth LE on Linux):
+At present we support Linux only for BLE, because the BLE functions of this library depends on bluepy(Python interface to Bluetooth LE on Linux by Mr. Ian Harvey):
 
 https://github.com/IanHarvey/bluepy
 
+The USB serial functions should work on Windows and Mac too. Please use setup-usb.py to install.
+
 Requirements
 -----------
-- Linux (for bluepy)
-- python ≥3.5
-- bluepy
-- pyserial
+- python >= 3.5
+- pyserial >= 3.4
+- bluepy >= 1.1.4
 
 Installation
 -----------
-| sudo apt install git
-| git clone https://github.com/keigan-motor/pykeigan_motor
-| cd pykeigan_motor
-| python setup.py install
+For Linux
+::
 
+    sudo apt install git
+    git clone -b v2 https://github.com/keigan-motor/pykeigan_motor
+    cd pykeigan_motor
+    python setup.py install (or python setup-usb.py install )
 
 USB Serial
 -----------
+| To connect your Keigan Motor through USB serial, you need to know the mounted path.
+| You can get the unique path of your Keigan Motor by
+::
+
+    ls /dev/serial/by-id/
+
+| Your Keigan Motor's ID should be like 'usb-FTDI_FT230X_Basic_UART_DM00XXXX-if00-port0'.
+| To use your Keigan Motor through USB serial, you need to add R/W permission to it.
+::
+
+    sudo chmod 666 /dev/serial/by-id/usb-FTDI_FT230X_Basic_UART_DM00XXXX-if00-port0
+
+Simplest Sample Code. Rotate counter-clockwise with 1.0 rad/sec.
+
 .. code-block:: python
 
-  from pykeigan_motor import KMControllers
-  dev=KMControllers.USBContoller('/dev/ttyUSB0')
-  dev.enable()
-  dev.speed(1.0)
-  dev.runForward()
+  from pykeigan import usbcontroller
+  dev=usbcontroller.USBContoller('/dev/serial/by-id/usb-FTDI_FT230X_Basic_UART_DM00xxxx-if00-port0')
+  dev.enable_action()
+  dev.set_speed(1.0)
+  dev.run_forward()
 
-BLE
-----
+BLE (for Linux Only)
+-----------
+| You need to know the MAC address of you Keigan Motor for BLE connection.
+| For example, you can use the following simple script. Please run with sudo.
+KM1Scan.py
+
 .. code-block:: python
 
-  from pykeigan_motor import KMControllers
-  dev=KMControllers.BLEController("xx:xx:xx:xx:xx")
-  dev.enable()
-  dev.speed(1.0)
-  dev.runForward()
+  from bluepy.btle import Scanner
+  scanner=Scanner()
+  devices=scanner.scan(5.0)
+  for dev in devices:
+      for (adtype, desc, value) in dev.getScanData():
+          if desc=="Complete Local Name" and "KM-1" in value:
+              print(value,":",dev.addr)
+
+Simplest Sample Code. Rotate counter-clockwise with 1.0 rad/sec.
+
+.. code-block:: python
+
+  from pykeigan import blecontroller
+  dev=blecontroller.BLEController("xx:xx:xx:xx:xx")
+  dev.enable_action()
+  dev.set_speed(1.0)
+  dev.run_forward()
+
+Release Notes
+-----------
+Release 2.0.0
+
+- Method Names Renewal
+- Added Debug Mode
+- Added Data Acquisition on USB serial
+- Added Windows and Mac Support for USB serial
