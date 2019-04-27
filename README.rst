@@ -1,5 +1,11 @@
-Python Library for Keigan Motor
+Python Library for Keigan Motor (v2)
 =========================================
+
+| **This library has been updated from v1 to v2.**  
+| **The method names are not comatible, but we added many important features.**
+| **We strongrly recommend this v2 from now on.**
+Just in case you can get v1 from:
+https://github.com/keigan-motor/pykeigan_motor/tree/v1
 
 You can control your Keigan Motor through USB Serial and BLE.
 
@@ -41,7 +47,8 @@ USB Serial
 
     sudo chmod 666 /dev/serial/by-id/usb-FTDI_FT230X_Basic_UART_DM00XXXX-if00-port0
 
-Simplest Sample Code. Rotate counter-clockwise with 1.0 rad/sec.
+- Simplest Sample Code
+    Rotate counter-clockwise with 1.0 rad/sec.
 
 .. code-block:: python
 
@@ -50,6 +57,21 @@ Simplest Sample Code. Rotate counter-clockwise with 1.0 rad/sec.
   dev.enable_action()
   dev.set_speed(1.0)
   dev.run_forward()
+
+- examples/usb-simple-connection.py
+    Basic connection to the Motor.
+- examples/usb-rotate-the-motor.py
+    Rotate the Motor continuously and stop.
+- examples/usb-position-control.py
+    Rotate the Motor to the relative and absolute position.
+- examples/usb-get-motor-Informations.py
+    Acquire the speed, position, torque and IMU values of the Motor.
+- examples/usb-actuator.py
+    Let the Motor go and return for the specific distance.
+- examples/usb-torque-control.py
+    Demonstration for a torque control. Increase the torque as you rotate the Motor by hand.
+- examples/usb-teaching-control.py
+    Let the Motor record and playback your motion.
 
 BLE (for Linux Only)
 -----------
@@ -67,7 +89,8 @@ KM1Scan.py
           if desc=="Complete Local Name" and "KM-1" in value:
               print(value,":",dev.addr)
 
-Simplest Sample Code. Rotate counter-clockwise with 1.0 rad/sec.
+- Simplest Sample Code
+    Rotate counter-clockwise with 1.0 rad/sec.
 
 .. code-block:: python
 
@@ -77,6 +100,15 @@ Simplest Sample Code. Rotate counter-clockwise with 1.0 rad/sec.
   dev.set_speed(1.0)
   dev.run_forward()
 
+- examples/ble-simple-connection.py
+    Basic connection to the Motor.
+- examples/ble-scanner-connection.py
+    Connect to the Motor by BLE scanning.
+- examples/ble-rotate-the-motor.py
+    Rotate the Motor continuously and stop.
+- examples/ble-get-motor-Informations.py
+     Acquire the speed, position, torque and IMU values of the Motor.
+    
 Release Notes
 -----------
 Release 2.0.0
