@@ -10,6 +10,7 @@ https://www.keigan-motor.com/
 | **We strongrly recommend this v2 from now on.**
 | **Just in case you can get v1 from: https://github.com/keigan-motor/pykeigan_motor/tree/v1**
 
+
 At present we support Linux only for BLE, because the BLE functions of this library depends on bluepy(Python interface to Bluetooth LE on Linux by Mr. Ian Harvey):
 
 https://github.com/IanHarvey/bluepy
