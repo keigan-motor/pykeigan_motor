@@ -40,6 +40,18 @@ class USBController(base.Controller):
         """
         self.serial.close()
 
+    def start_debug(self):
+        """
+        Start to print command logs.
+        """
+        self.DebugMode = True
+
+    def finish_debug(self):
+        """
+        Finish to print command logs.
+        """
+        self.DebugMode = False
+
     def start_auto_serial_reading(self):
         self.auto_serial_reading = True
         self.t = threading.Thread(target=self.__serial_schedule_worker)
