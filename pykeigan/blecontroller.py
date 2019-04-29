@@ -57,11 +57,17 @@ class BLEController(base.Controller):
                 break
 
     def start_debug(self):
+        """
+        Start to print command logs
+        """
         if self.DebugMode==False:
             self.start_command_log_capturing()
             self.DebugMode=True
 
     def finish_debug(self):
+        """
+        Finish to print command logs
+        """
         self.DebugMode = False
 
     def __all_done(self):
@@ -123,7 +129,7 @@ class BLEController(base.Controller):
     def read_imu_measurement(self):
         """
         Get the x,y,z axis acceleration, temperature, and anguler velocities around x,y,z axis
-        and store them to 'accel_x', 'accel_y', 'accel_z' in g(9.80665 m/s^2), 'temp' in degree Celsius, 'gyro_x', 'gyro_y', and 'gyro_z' in rad/sec. Need to call enableIMUMeasurement() before calling this function.
+        and store them to 'accel_x', 'accel_y', 'accel_z' in g(9.80665 m/s^2), 'temp' in degree Celsius, 'gyro_x', 'gyro_y', and 'gyro_z' in rad/sec. Need to call enable_continual_imu_measurement() before calling this function.
         """
         while self.ble_lock:
             time.sleep(0.1)
@@ -134,7 +140,7 @@ class BLEController(base.Controller):
             ba = self.dev.readCharacteristic(self.motor_imu_measurement_handle)
             error_count+=1
             if error_count>10:
-                raise ValueError("Reading imu values failed. Did you call enableIMUMeasurement() beforehand?")
+                raise ValueError("Reading imu values failed. Did you call enable_continual_imu_measurement() beforehand?")
         self.ble_lock = False
         accel_x = bytes2int16_t(ba[0:2]) * 2.0 / 32767
         accel_y = bytes2int16_t(ba[2:4]) * 2.0 / 32767
