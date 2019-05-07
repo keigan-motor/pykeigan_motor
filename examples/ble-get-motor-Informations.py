@@ -38,8 +38,8 @@ def get_motor_informations():
 #接続
 dev=blecontroller.BLEController("FB:78:30:D3:7C:2F")#モーターのMACアドレス 参照 ble-simple-connection.py
 dev.set_led(2,255,255,0)
-
 dev.enable_continual_imu_measurement()#IMUは通知をOnにする必要がある
+sleep(0.5)
 
 #一定間隔で取得
 executor = ThreadPoolExecutor(max_workers=2)
