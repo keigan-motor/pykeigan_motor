@@ -150,7 +150,7 @@ class USBController(base.Controller):
                 for ie in range(i + 4, bf_len-3):
                     # ポストアンブル検出
                     if self.serial_buf[ie + 2:ie+4] == b'\x0d\x0a':
-                        crc = self.serial_buf[ie] << 8 | self.serial_buf[ie + 1]  # CRC
+                        # crc = self.serial_buf[ie] << 8 | self.serial_buf[ie + 1]  # CRC
                         payload = self.serial_buf[i + 4: ie]  # 情報バイト
                         self.__serialdataParse(payload)
                         slice_idx = ie + 4
@@ -162,9 +162,9 @@ class USBController(base.Controller):
 
     def __serialdataParse(self, byte_array):
         v_len = len(byte_array)
-        if (v_len < 3 or byte_array[0] != v_len):
+        if (v_len < 3 or bytes2uint8_t(byte_array[0:1]) != v_len):
             return False
-        datatype = byte_array[1]
+        datatype = bytes2uint8_t(byte_array[1:2])
         payload = byte_array[2:]
         if datatype == 0xB4:  # モーター回転情報受信
             position = bytes2float(payload[0:4])
@@ -192,7 +192,7 @@ class USBController(base.Controller):
         elif datatype == 0x40:
             float_value_comms = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
                                  0x21, 0x5B]
-            comm = payload[2]
+            comm = bytes2uint8_t(payload[2:3])
             if comm in float_value_comms:
                 self.setting_values[comm] = bytes2float(payload[3:7]), time.time()
                 return True
@@ -200,7 +200,7 @@ class USBController(base.Controller):
                 self.setting_values[comm] = bytes2uint8_t(payload[3:4]), time.time()
                 return True
             elif comm == 0x3A:
-                self.setting_values[comm] = (payload[3], payload[4], payload[5]), time.time()
+                self.setting_values[comm] = (bytes2uint8_t(payload[3:4]), bytes2uint8_t(payload[4:5]), bytes2uint8_t(payload[5:6])), time.time()
                 return True
             elif comm == 0x46:
                 self.setting_values[comm] = payload[3:16].decode('utf-8'), time.time()
@@ -221,7 +221,7 @@ class USBController(base.Controller):
             else:
                 return False
         elif datatype == 0xBE:  # command log
-            self.__motor_log_value={'command_names':self.command_names[payload[2]],'error_codes':self.error_codes[bytes2uint16_t(payload[6:8])]}
+            self.__motor_log_value={'command_names':self.command_names[bytes2uint8_t(payload[2:3])],'error_codes':self.error_codes[bytes2uint16_t(payload[6:8])]}
             if (callable(self.on_motor_log_cb)):
                 self.on_motor_log_cb(self.__motor_log_value)
             if self.DebugMode:

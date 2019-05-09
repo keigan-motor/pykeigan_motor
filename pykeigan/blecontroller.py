@@ -33,7 +33,7 @@ class BLEController(base.Controller):
         self.set_interface(self.interface_type['BLE'] + self.interface_type['BTN'])
 
     def print_command_log(self,ba):
-        print(self.command_names[ba[3]],self.error_codes[bytes2uint16_t(ba[7:9])])
+        print(self.command_names[bytes2uint8_t(ba[3:4])],self.error_codes[bytes2uint16_t(ba[7:9])])
 
     def start_command_log_capturing(self):
         self.t = threading.Thread(target=self.__log_schedule_worker)
@@ -44,11 +44,11 @@ class BLEController(base.Controller):
     def __log_schedule_worker(self):
         old_ba = None
         while True:
-            time.sleep(200 / 1000)  # 200ms
+            time.sleep(1)
             if not self.ble_lock:
                 self.ble_lock=True
                 ba = self.dev.readCharacteristic(self.motor_rx_handle)
-                if ba[0] == 0xBE and len(ba)==14:
+                if bytes2uint8_t(ba[0:1]) == 0xBE and len(ba)==14:
                     if ba!=old_ba:
                         old_ba = ba
                         self.print_command_log(ba)
@@ -159,7 +159,7 @@ class BLEController(base.Controller):
         return bytes2uint8_t(ba[4:5])
 
     def __read_rgb_data(self, ba):
-        return ba[4], ba[5], ba[6]
+        return bytes2uint8_t(ba[4:5]), bytes2uint8_t(ba[5:6]),bytes2uint8_t(ba[6:7])
 
     def __read_devicename_data(self, ba):
         return ba[4:17].decode('utf-8')
@@ -185,8 +185,8 @@ class BLEController(base.Controller):
             time.sleep(0.1)
         self.ble_lock = True
         ba = self.dev.readCharacteristic(self.motor_rx_handle)
-        while len(ba) == 6 or ba[0] == 0xBE:
-            if ba[0] == 0xBE: #in the case where the last command log remains
+        while len(ba) == 6 or bytes2uint8_t(ba[0:1]) == 0xBE:
+            if bytes2uint8_t(ba[0:1]) == 0xBE: #in the case where the last command log remains
                 self.read_register(comm)
             ba = self.dev.readCharacteristic(self.motor_rx_handle)
         self.ble_lock = False
