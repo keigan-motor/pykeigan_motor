@@ -40,10 +40,10 @@ def uint32_t2bytes(uint32_value):
     return struct.pack("BBBB",val1,val2,val3,val4)
 
 def bytes2uint32_t(ba):
-    return struct.unpack("BBBB",ba)[0]
+    return struct.unpack(">I",ba)[0]
 
 def bytes2uint16_t(ba):
-    return struct.unpack("BB",ba)[0]
+    return struct.unpack(">H",ba)[0]
 
 def bytes2uint8_t(ba):
     return struct.unpack("B",ba)[0]
@@ -59,6 +59,6 @@ def rad2deg(radian):
 
 def rpm2rad_per_sec(rpm):
     return rpm *0.10471975511965977
-    
+
 def rad_per_sec2rpm(radian_per_sec):
     return radian_per_sec/0.10471975511965977
