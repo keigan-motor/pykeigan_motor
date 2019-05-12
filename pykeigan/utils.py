@@ -40,10 +40,10 @@ def uint32_t2bytes(uint32_value):
     return struct.pack("BBBB",val1,val2,val3,val4)
 
 def bytes2uint32_t(ba):
-    return struct.unpack("BBBB",ba)[0]
+    return struct.unpack(">I",ba)[0]
 
 def bytes2uint16_t(ba):
-    return struct.unpack("BB",ba)[0]
+    return struct.unpack(">H", ba)[0]
 
 def bytes2uint8_t(ba):
     return struct.unpack("B",ba)[0]
