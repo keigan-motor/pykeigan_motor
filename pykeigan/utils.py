@@ -43,7 +43,7 @@ def bytes2uint32_t(ba):
     return struct.unpack(">I",ba)[0]
 
 def bytes2uint16_t(ba):
-    return struct.unpack(">H",ba)[0]
+    return struct.unpack(">H", ba)[0]
 
 def bytes2uint8_t(ba):
     return struct.unpack("B",ba)[0]

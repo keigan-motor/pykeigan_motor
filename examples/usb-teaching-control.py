@@ -8,6 +8,7 @@ Created on Thr Jan 10 09:13:24 2018
 import signal
 import sys
 import os
+import math
 import pathlib
 from time import sleep
 
@@ -18,6 +19,8 @@ sys.path.append( str(current_dir) + '/../' )
 from pykeigan import usbcontroller
 from pykeigan import utils
 
+
+REC_NUMBER=1
 
 """
 ----------------------
@@ -68,18 +71,53 @@ def play_teaching(index):
     dev.set_led(1, 100, 100, 100)
     return True
 
+def read_comp_cb(index,motion_value):
+    print("read motion data "+str(index)+" >>>>>>>>>>>>>>")
+    print(motion_value)
+    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+
+def read_motion_exec(index):
+    dev.read_motion(index,read_comp_cb)
+
+def write_motion_position_exec(index):
+    print("Write Test motion>>>>" )
+    dev.enable_action()
+    dev.erase_motion(index)
+    sleep(2)
+    dev.prepare_teaching_motion(index,0)
+    sleep(1)
+    amp = math.pi/2 #deg
+    len=500
+    for i in range(len):
+        pos=amp*math.cos(2*math.pi*i/500)
+        dev.write_motion_position(pos)
+        sleep(0.02)
+        print('\r Write Test motion>>>>{0}  {1}/{2}'.format(pos,i,len), end='')
+    pass
+    sleep(0.5)
+    dev.stop_teaching_motion()
+    sleep(1)
+    print("")
+    print("Write Test motion>>>>comp")
+    play_teaching(REC_NUMBER)
+
 """
 Exit with key input
 """
 
+
 sleep(0.5)
 while True:
     print("---------------------------------------")
-    inp = input('Command input > Rec:[r] Replay:[p] Exit:[Other key] >>')
+    inp = input('Command input > Rec:[r] Replay:[p]  Write Test motion:[w] Read motion:[m] Exit:[Other key] >>')
     if inp == 'r':
-        rec_and_play_teaching(0)
+        rec_and_play_teaching(REC_NUMBER)
     elif inp == 'p':
-        play_teaching(0)
+        play_teaching(REC_NUMBER)
+    elif inp == 'w':
+        write_motion_position_exec(REC_NUMBER)
+    elif inp == 'm':
+        read_motion_exec(REC_NUMBER)
     elif inp !=None:
         dev.set_led(1, 100, 100, 100)
         dev.disable_action()

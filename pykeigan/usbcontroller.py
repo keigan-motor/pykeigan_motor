@@ -19,11 +19,13 @@ class USBController(base.Controller):
         self.__motor_measurement_value = None
         self.__imu_measurement_value = None
         self.__motor_log_value = None
+        self.__read_motion_value = []
         self.port = port
         self.serial = serial.Serial(port, 115200, 8, 'N', 1, None, False, True)
         self.on_motor_measurement_value_cb = False
         self.on_motor_imu_measurement_cb = False
         self.on_motor_connection_error_cb = False
+        self.on_read_motion_read_comp_cb = False
         self.on_motor_log_cb = False
         self.set_interface(self.interface_type['USB'] + self.interface_type['BTN'])
         self.start_auto_serial_reading()
@@ -189,7 +191,7 @@ class USBController(base.Controller):
             if (callable(self.on_motor_imu_measurement_cb)):
                 self.on_motor_imu_measurement_cb(self.__imu_measurement_value)
             return True
-        elif datatype == 0x40:
+        elif datatype == 0x40: #Register infomations
             float_value_comms = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
                                  0x21, 0x5B]
             comm = bytes2uint8_t(payload[2:3])
@@ -227,10 +229,31 @@ class USBController(base.Controller):
             if self.DebugMode:
                 print(self.__motor_log_value['command_names'],self.__motor_log_value['error_codes'])
             return True
+        elif datatype == 0xB7: #Position coordinates of "readMotion" (Motor farm ver>=2.0)
+            motion_index=bytes2uint16_t(payload[0:2])
+            total_pos_len = bytes2uint32_t(payload[2:6])
+            payload_fast_pos_idx=bytes2uint32_t(payload[6:10])
+            payload_pos_len=bytes2uint32_t(payload[10:14])
+            ar=[]
+            for i in range(payload_pos_len):
+                try:
+                    ar.append(bytes2float(payload[14+(i*4):18+(i*4)]))
+                except:
+                    break
+            try:
+                del self.__read_motion_value[payload_fast_pos_idx:]
+            except:
+                pass
+            self.__read_motion_value.extend(ar)
+
+            if(len(self.__read_motion_value) >= total_pos_len): #Completed receiving all data
+                if (callable(self.on_read_motion_read_comp_cb)):
+                    self.on_read_motion_read_comp_cb(motion_index, self._read_motion_value())
+            return True
         else:  # Unknown data
             return False
 
-    def _read_setting_value(self, comm, validation_threshold=1.0):
+    def _read_setting_value(self, comm, validation_threshold=1.0):#Register infomation
         float_value_comms = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21,
                              0x5B]
         valid_comms = [0x05, 0x3A, 0x46, 0x47, 0x9A]
@@ -273,6 +296,8 @@ class USBController(base.Controller):
             if comm == 0xB5:
                 raise ValueError("No data within ", validation_threshold, " sec.")
 
+    def _read_motion_value(self):
+        return self.__read_motion_value
 
     def read_motor_measurement(self):
         return self.__read_measurement_value(0xB4)
