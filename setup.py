@@ -8,7 +8,7 @@ with open(path.join(this_directory, 'README.rst'), encoding='utf-8') as f:
     readme = f.read()
 
 setup(
-    name='pykeigan',
+    name='pykeigan_motor',
     version='2.1.0',
     description='Python Library for Keigan Motors (v2)',
     long_description=readme,
