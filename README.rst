@@ -1,15 +1,19 @@
 Python Library for Keigan Motor (v2)
-=========================================
+==============================================
 
+Introduction
+---------------
 You can control your Keigan Motor through USB Serial and BLE.
 
 https://www.keigan-motor.com/
 
-| **This library has been updated from v1 to v2.**  
-| **The method names are not comatible, but we added many important features.**
-| **We strongrly recommend this v2 from now on.**
-| **Just in case you can get v1 from: https://github.com/keigan-motor/pykeigan_motor/tree/v1**
-|
+**This library has been updated from v1 to v2.**
+
+**The method names are not comatible, but we added many important features.**
+
+**We strongrly recommend this v2 from now on.**
+
+**Just in case you can get v1 from: https://github.com/keigan-motor/pykeigan_motor/tree/v1**
 
 At present we support Linux only for BLE, because the BLE functions of this library depends on bluepy(Python interface to Bluetooth LE on Linux by Mr. Ian Harvey):
 
@@ -18,15 +22,14 @@ https://github.com/IanHarvey/bluepy
 The USB serial functions should work on Windows and Mac too. Please use setup-usb.py to install.
 
 Requirements
------------
-- python >= 3.5
+------------------
+- python >= 3.5 or 2.6
 - pyserial >= 3.4
 - bluepy >= 1.1.4
 
 Installation
------------
-For Linux
-::
+-------------------------------
+For Linux::
 
     sudo apt install git
     git clone -b v2 https://github.com/keigan-motor/pykeigan_motor
@@ -34,16 +37,14 @@ For Linux
     python setup.py install (or python setup-usb.py install )
 
 USB Serial
------------
-| To connect your Keigan Motor through USB serial, you need to know the mounted path.
-| You can get the unique path of your Keigan Motor by
-::
+-----------------
+To connect your Keigan Motor through USB serial, you need to know the mounted path.
+You can get the unique path of your Keigan Motor by::
 
     ls /dev/serial/by-id/
 
-| Your Keigan Motor's ID should be like 'usb-FTDI_FT230X_Basic_UART_DM00XXXX-if00-port0'.
-| To use your Keigan Motor through USB serial, you need to add R/W permission to it.
-::
+Your Keigan Motor's ID should be like 'usb-FTDI_FT230X_Basic_UART_DM00XXXX-if00-port0'.
+To use your Keigan Motor through USB serial, you need to add R/W permission to it.::
 
     sudo chmod 666 /dev/serial/by-id/usb-FTDI_FT230X_Basic_UART_DM00XXXX-if00-port0
 
@@ -74,9 +75,11 @@ USB Serial
     Let the Motor record and playback your motion.
 
 BLE (for Linux Only)
------------
-| You need to know the MAC address of you Keigan Motor for BLE connection.
-| For example, you can use the following simple script. Please run with sudo.
+----------------------
+You need to know the MAC address of you Keigan Motor for BLE connection.
+
+For example, you can use the following simple script. Please run with sudo.
+
 KM1Scan.py
 
 .. code-block:: python
@@ -108,9 +111,18 @@ KM1Scan.py
     Rotate the Motor continuously and stop.
 - examples/ble-get-motor-Informations.py
      Acquire the speed, position, torque and IMU values of the Motor.
-    
+
 Release Notes
------------
+------------------
+Release 2.1.0
+
+- Added python 2 support
+
+Release 2.0.1
+
+- Added APIs for reading and writing teaching data
+- Added read_motion and write_motion_position
+
 Release 2.0.0
 
 - Method Names Renewal
