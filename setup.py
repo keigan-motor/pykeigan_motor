@@ -9,7 +9,7 @@ with open(path.join(this_directory, 'README.rst')) as f:
 
 setup(
     name='pykeigan_motor',
-    version='2.1.0',
+    version='2.1.1',
     description='Python Library for Keigan Motors (v2)',
     long_description=readme,
     long_description_content_type='text/x-rst',
