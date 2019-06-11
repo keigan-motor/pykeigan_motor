@@ -2,9 +2,9 @@
 
 from setuptools import setup, find_packages
 from os import path
-
+import codecs
 this_directory = path.abspath(path.dirname(__file__))
-with open(path.join(this_directory, 'README.rst')) as f:
+with codecs.open(path.join(this_directory, 'README.rst'),'r','utf-8') as f:
     readme = f.read()
 
 setup(
