@@ -35,6 +35,7 @@ For Linux::
     git clone https://github.com/keigan-motor/pykeigan_motor
     cd pykeigan_motor
     python setup.py install (or python setup-usb.py install )
+
 Or::
 
     pip install pykeigan-motor

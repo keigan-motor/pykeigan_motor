@@ -9,7 +9,7 @@ with codecs.open(path.join(this_directory, 'README.rst'),'r','utf-8') as f:
 
 setup(
     name='pykeigan_motor',
-    version='2.1.1',
+    version='2.1.2',
     description='Python Library for Keigan Motors (v2)',
     long_description=readme,
     long_description_content_type='text/x-rst',
