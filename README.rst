@@ -32,7 +32,7 @@ Installation
 For Linux::
 
     sudo apt install git
-    git clone -b v2 https://github.com/keigan-motor/pykeigan_motor
+    git clone https://github.com/keigan-motor/pykeigan_motor
     cd pykeigan_motor
     python setup.py install (or python setup-usb.py install )
 
