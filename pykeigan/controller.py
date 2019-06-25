@@ -7,7 +7,6 @@ Created on Thr Jan 10 09:13:24 2018
 @author: harada@keigan.co.jp
 """
 import serial,struct,threading,atexit,time
-from bluepy import btle
 from pykeigan.utils import *
 
 class Controller:
@@ -823,4 +822,3 @@ class Controller:
         pass
     def _read_motion_value(self):#dummy
         pass
-
