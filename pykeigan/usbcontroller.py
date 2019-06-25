@@ -30,6 +30,8 @@ class USBController(base.Controller):
         self.set_interface(self.interface_type['USB'] + self.interface_type['BTN'])
         self.start_auto_serial_reading()
 
+        atexit.register(self.my_cleanup)
+
     def connect(self):
         """
         Open the USB port.
@@ -40,6 +42,8 @@ class USBController(base.Controller):
         """
         Close the USB port.
         """
+        self.my_cleanup()
+        time.sleep(0.5)
         self.serial.close()
 
     def start_debug(self):
@@ -304,3 +308,8 @@ class USBController(base.Controller):
 
     def read_imu_measurement(self):
         return self.__read_measurement_value(0xB5)
+
+
+    #修了イベント　測定値のスレッドを停止する後処理
+    def my_cleanup(self):
+        self.finish_auto_serial_reading()
