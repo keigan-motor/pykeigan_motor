@@ -7,7 +7,10 @@ Created on Thr Jan 10 09:13:24 2018
 @author: harada@keigan.co.jp
 """
 import serial,struct,threading,atexit,time
-from bluepy import btle
+try:
+    from bluepy import btle
+except ImportError:
+    pass
 from pykeigan.utils import *
 
 class Controller:
