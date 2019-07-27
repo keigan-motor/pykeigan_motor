@@ -227,7 +227,7 @@ class USBController(base.Controller):
             else:
                 return False
         elif datatype == 0xBE:  # command log
-            self.__motor_log_value={'command_names':self.command_names[bytes2uint8_t(payload[2:3])],'error_codes':self.error_codes[bytes2uint16_t(payload[6:8])]}
+            self.__motor_log_value={'command_names':self.command_names[bytes2uint8_t(payload[2:3])],'error_codes':self.error_codes[bytes2uint32_t(payload[3:7])]}
             if (callable(self.on_motor_log_cb)):
                 self.on_motor_log_cb(self.__motor_log_value)
             if self.DebugMode:
@@ -267,7 +267,7 @@ class USBController(base.Controller):
         self.read_register(comm)
         time.sleep(0.15)
         if not self.auto_serial_reading:
-            raise ValueError("Disabled reading serial data. Try calling start_serial_reading()")
+            raise ValueError("Disabled reading serial data. Try calling start_auto_serial_reading()")
         if comm in self.setting_values.keys():
             val, received_unix_time = self.setting_values[comm]
             if time.time() - received_unix_time < validation_threshold:

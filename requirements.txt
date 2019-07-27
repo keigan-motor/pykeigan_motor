@@ -4,5 +4,5 @@
 #
 #    pip-compile --output-file requirements.txt requirements.in
 #
-bluepy=>1.1.4
-pyserial=>3.4
+bluepy>=1.1.4
+pyserial>=3.4

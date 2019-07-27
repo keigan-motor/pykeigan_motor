@@ -40,6 +40,7 @@ while True:
     inp = input('Exit:[key input] >>')
     if inp !=None:
         dev.set_led(1, 100, 100, 100)
-        dev.disable_action()#USB接続は切断してもモーター動作は停止しない為、明示的に停止する必要がある
+        time.sleep(1)
+        dev.disable_action() #USB接続は切断してもモーター動作は停止しない為、明示的に停止する必要がある
         dev.disconnect()
         break
