@@ -23,7 +23,7 @@ The USB serial functions should work on Windows and Mac too. Please use setup-us
 
 Requirements
 ------------------
-- python >= 3.5 or 2.6
+- python >= 3.5 (recommended) or 2.6
 - pyserial >= 3.4
 - bluepy >= 1.1.4
 
