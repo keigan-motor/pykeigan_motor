@@ -57,7 +57,7 @@ def rec_and_play_teaching(index):
     print("")
     dev.set_led(1, 100, 100, 100)
     sleep(2)
-    play_teaching(0)
+    play_teaching(index)
     return True
 
 def play_teaching(index):
