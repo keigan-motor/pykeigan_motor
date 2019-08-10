@@ -2,16 +2,17 @@
 
 from setuptools import setup, find_packages
 from os import path
-
+import codecs
 this_directory = path.abspath(path.dirname(__file__))
-with open(path.join(this_directory, 'README.rst'), encoding='utf-8') as f:
+with codecs.open(path.join(this_directory, 'README.rst'),'r','utf-8') as f:
     readme = f.read()
 
 setup(
     name='pykeigan_motor_usb',
-    version='2.1.0',
-    description='Python Library for Keigan Motors on USB',
+    version='2.1.3',
+    description='Python Library for Keigan Motors (v2)',
     long_description=readme,
+    long_description_content_type='text/x-rst',
     install_requires=['pyserial'],
     author='Tomohiro Takata, Hiroshi Harada',
     author_email='takata@innovotion.co.jp, harada@keigan.co.jp',
