@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-
-import sys
-sys.path.append('../pykeigan')
 from pykeigan.utils import *
 
 def test_float2bytes():
