@@ -40,6 +40,13 @@ Or::
 
     pip install pykeigan-motor
 
+For Windows and Mac (USB serial only)::
+
+    sudo apt install git
+    git clone https://github.com/keigan-motor/pykeigan_motor
+    cd pykeigan_motor
+    python setup-usb.py install
+
 USB Serial
 -----------------
 To connect your Keigan Motor through USB serial, you need to know the mounted path.
