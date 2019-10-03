@@ -26,7 +26,7 @@ from pykeigan import utils
         https://document.keigan-motor.com/basic/reset
 """
 
-dev=blecontroller.BLEController("C1:C5:89:AE:3F:CD")#モーターのMACアドレス
+dev=blecontroller.BLEController("d1:5a:fa:a7:d9:5d")#モーターのMACアドレス
 dev.set_led(2,255,255,0)# (LEDflash:2,R:255,G:255,B:0) https://document.keigan-motor.com/software_dev/lowapis/led
 dev.enable_action()#安全装置。初めてモーターを動作させる場合に必ず必要。
 dev.set_speed(utils.rpm2rad_per_sec(5))#rpm -> radian/sec
