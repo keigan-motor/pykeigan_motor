@@ -5,6 +5,7 @@ Created on Thr Jan 10 09:13:24 2018
 @author: takata@innovotion.co.jp
 @author: harada@keigan.co.jp
 """
+import argparse
 import signal
 import sys
 import os
@@ -17,6 +18,10 @@ sys.path.append( str(current_dir) + '/../' )
 
 from pykeigan import usbcontroller
 from pykeigan import utils
+
+parser = argparse.ArgumentParser(description='モーター動作 絶対位置往復運動')
+parser.add_argument('port',metavar='PORT',default='/dev/ttyUSB0',nargs='?',help='モーターのデバイスファイル指定 (default:/dev/ttyUSB0)')
+args = parser.parse_args()
 
 os.system('clear')
 for i in range(10):
@@ -39,7 +44,7 @@ def on_motor_log_cb(log):
     print('log {} '.format(log), end="", flush=True)
 
 #接続
-dev=usbcontroller.USBController('/dev/ttyUSB0',False)
+dev=usbcontroller.USBController(args.port,False)
 dev.on_motor_measurement_value_cb=on_motor_measurement_cb
 dev.on_motor_log_cb=on_motor_log_cb
 

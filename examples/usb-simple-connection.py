@@ -6,6 +6,8 @@ Created on Thr Jan 10 09:13:24 2018
 @author: harada@keigan.co.jp
 """
 
+import argparse
+from argparse import RawTextHelpFormatter
 import sys
 import pathlib
 import time
@@ -15,7 +17,7 @@ sys.path.append( str(current_dir) + '/../' )
 from pykeigan import usbcontroller
 from pykeigan import utils
 
-"""
+description="""
 ----------------------
 モーターへの接続
 ----------------------
@@ -25,8 +27,11 @@ from pykeigan import utils
             ex)/dev/serial/by-id/usb-FTDI_FT230X_Basic_UART_DM00LSSA-if00-port0
 
 """
+parser = argparse.ArgumentParser(description=description,formatter_class=RawTextHelpFormatter)
+parser.add_argument('port',metavar='PORT',default='/dev/ttyUSB0',nargs='?',help='モーターのデバイスファイル指定 (default:/dev/ttyUSB0)')
+args = parser.parse_args()
 
-dev=usbcontroller.USBController('/dev/ttyUSB0',False)
+dev=usbcontroller.USBController(args.port,False)
 dev.set_led(2,255,255,0)# (LEDflash:2,R:255,G:255,B:0) https://document.keigan-motor.com/software_dev/lowapis/led
 dev.enable_action()#安全装置。初めてモーターを動作させる場合に必ず必要。
 dev.set_speed(utils.rpm2rad_per_sec(5))#rpm -> radian/sec
