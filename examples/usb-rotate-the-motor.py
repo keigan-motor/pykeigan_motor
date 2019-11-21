@@ -6,6 +6,7 @@ Created on Thr Jan 10 09:13:24 2018
 @author: harada@keigan.co.jp
 """
 
+import argparse
 import sys
 import pathlib
 from time import sleep
@@ -16,13 +17,17 @@ sys.path.append( str(current_dir) + '/../' )
 from pykeigan import usbcontroller
 from pykeigan import utils
 
+parser = argparse.ArgumentParser(description='モーター動作 正転 逆転')
+parser.add_argument('port',metavar='PORT',default='/dev/ttyUSB0',nargs='?',help='モーターのデバイスファイル指定 (default:/dev/ttyUSB0)')
+args = parser.parse_args()
+
 """
 ----------------------
 モーターを5rpmで 正転(10秒) -> 逆転(10秒) -> 停止(トルクあり) -> 停止(トルク無し)
 ----------------------
 
 """
-dev=usbcontroller.USBController('/dev/ttyUSB0',False)#モーターのアドレス 参照 usb-simple-connection.py
+dev=usbcontroller.USBController(args.port,False)#モーターのアドレス 参照 usb-simple-connection.py
 dev.enable_action()#安全装置。初めてモーターを動作させる場合に必ず必要。
 dev.set_speed(utils.rpm2rad_per_sec(5))#rpm -> radian/sec
 
