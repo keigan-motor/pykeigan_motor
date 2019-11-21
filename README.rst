@@ -19,33 +19,31 @@ At present we support Linux only for BLE, because the BLE functions of this libr
 
 https://github.com/IanHarvey/bluepy
 
-The USB serial functions should work on Windows and Mac too. Please use setup-usb.py to install.
+The USB serial functions should work on Windows and Mac too.
 
 Requirements
 ------------------
 - python >= 3.5 (recommended) or 2.6
 - pyserial >= 3.4
-- bluepy >= 1.1.4
+- bluepy >= 1.1.4 (BLE support. Linux only)
 
 Installation
 -------------------------------
-For Linux::
+
+Install from source::
 
     sudo apt install git
     git clone https://github.com/keigan-motor/pykeigan_motor
     cd pykeigan_motor
-    python setup.py install (or python setup-usb.py install )
+    python setup.py install
+    # and to install BLE Support
+    pip install .[ble]
 
-Or::
+Install from PyPI::
 
     pip install pykeigan-motor
-
-For Windows and Mac (USB serial only)::
-
-    sudo apt install git
-    git clone https://github.com/keigan-motor/pykeigan_motor
-    cd pykeigan_motor
-    python setup-usb.py install
+    # or to install BLE Support
+    pip install pykeigan-motor[ble]
 
 USB Serial
 -----------------
