@@ -19,6 +19,7 @@ class USBController(base.Controller):
         self.__motor_measurement_value = None
         self.__imu_measurement_value = None
         self.__motor_log_value = None
+        self.__motor_event_value = None
         self.__read_motion_value = []
         self.port = port
         self.serial = serial.Serial(port, 115200, 8, 'N', 1, None, False, True)
@@ -27,6 +28,7 @@ class USBController(base.Controller):
         self.on_motor_connection_error_cb = False
         self.on_read_motion_read_comp_cb = False
         self.on_motor_log_cb = False
+        self.on_motor_event_cb = False
         self.set_interface(self.interface_type['USB'] + self.interface_type['BTN'])
         self.start_auto_serial_reading()
 
@@ -226,7 +228,7 @@ class USBController(base.Controller):
                 return True
             else:
                 return False
-        elif datatype == 0xBE:  # command log
+        elif datatype == 0xBE:  # command log (Error or Success information)
             self.__motor_log_value={'command_names':self.command_names[bytes2uint8_t(payload[2:3])],'error_codes':self.error_codes[bytes2uint32_t(payload[3:7])]}
             if (callable(self.on_motor_log_cb)):
                 self.on_motor_log_cb(self.__motor_log_value)
@@ -254,6 +256,12 @@ class USBController(base.Controller):
                 if (callable(self.on_read_motion_read_comp_cb)):
                     self.on_read_motion_read_comp_cb(motion_index, self._read_motion_value())
             return True
+        elif datatype == 0xCE:  # Event notification from KeiganMotor. (MotorFarmVar >2.28)
+            self.__motor_event_value={'event_type':self.event_types[bytes2uint8_t(payload[0:1])],'number':bytes2uint8_t(payload[1:2]),'state':bytes2uint8_t(payload[2:3])}
+            if (callable(self.on_motor_event_cb)):
+                self.on_motor_event_cb(self.__motor_event_value)
+
+            return True            
         else:  # Unknown data
             return False
 

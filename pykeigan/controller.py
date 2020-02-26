@@ -22,13 +22,20 @@ class Controller:
     @property
     def motor_control_modes(self):
         return {0:"MOTOR_CONTROL_MODE_NONE",1:"MOTOR_CONTROL_MODE_VELOCITY",2:"MOTOR_CONTROL_MODE_POSITION",3:"MOTOR_CONTROL_MODE_TORQUE",0xFF:"MOTOR_CONTROL_MODE_OTHERS"}
+    
     @property
     def error_codes(self):
-        return {0x00:"KM_SUCCESS", 0x03:"KM_ERROR_INTERNAL", 0x04:"KM_ERROR_NO_MEM", 0x05:"KM_ERROR_NOT_FOUND", 0x06:"KM_ERROR_NOT_SUPPORTED", 0x07:"KM_ERROR_INVALID_PARAM", 0x08:"KM_ERROR_INVALID_STATE", 0x09:"KM_ERROR_INVALID_LENGTH", 0x0B:"KM_ERROR_INVALID_DATA", 0x0D:"KM_ERROR_TIMEOUT", 0x0E:"KM_ERROR_NULL", 0x0F:"KM_ERROR_FORBIDDEN", 0x10:"KM_ERROR_INVALID_ADDR",0x11:"KM_ERROR_BUSY",0x14:"KM_ERROR_MOTOR_DISABLED",0x15:"KM_ERROR_MOTOR_OVER_TEMPERATURE", 0x64:"KM_SUCCESS_ARRIVAL"}
+        return {0x00:"KM_SUCCESS", 0x03:"KM_ERROR_INTERNAL", 0x04:"KM_ERROR_NO_MEM", 0x05:"KM_ERROR_NOT_FOUND", 0x06:"KM_ERROR_NOT_SUPPORTED", 0x07:"KM_ERROR_INVALID_PARAM", 0x08:"KM_ERROR_INVALID_STATE", 0x09:"KM_ERROR_INVALID_LENGTH", 0x0B:"KM_ERROR_INVALID_DATA", 0x0D:"KM_ERROR_TIMEOUT", 0x0E:"KM_ERROR_NULL", 0x0F:"KM_ERROR_FORBIDDEN", 0x10:"KM_ERROR_INVALID_ADDR",0x11:"KM_ERROR_BUSY",0x14:"KM_ERROR_MOTOR_DISABLED",0x15:"KM_ERROR_MOTOR_OVER_TEMPERATURE"}
+    
     @property
     def command_names(self):
         return {0x00:"unknown",0x02:"set_max_speed",0x03:"set_min_speed",0x05:"set_curve_type",0x07:"set_acc",0x08:"set_dec",0x0e:"set_max_torque",0x16:"set_teaching_interval",0x17:"set_playback_interval",0x18:"set_qcurrent_p",0x19:"set_qcurrent_i",0x1A:"set_qcurrent_d",0x1B:"set_speed_p",0x1C:"set_speed_i",0x1D:"set_speed_d",0x1E:"set_position_p",0x1F:"set_position_i",0x20:"set_position_d",0x21:"set_pos_control_threshold",0x22:"reset_all_pid",0x2C:"set_motor_measurement_interval",0x2D:"set_motor_measurement_settings",0x2E:"set_interface",0x3A:"set_own_color",0x3C:"set_imu_measurement_interval",0x3D:"set_imu_measurement_settings",0x40:"read_register",0x41:"save_all_registers",0x46:"read_device_name",0x47:"read_device_info",0x4E:"reset_register",0x4F:"reset_all_registers",0x50:"disable_action",0x51:"enable_action",0x58:"set_speed",0x5A:"preset_position",0x5B:"get_position_offset",0x60:"run_forward",0x61:"run_reverse",0x62:"run_at_velocity",0x65:"move_to_pos",0x66:"move_to_pos",0x67:"move_by_dist",0x68:"move_by_dist",0x6C:"free_motor",0x6D:"stop_motor",0x72:"hold_torque",0x75:"move_to_pos_until_arrival",0x76:"move_to_pos_until_arrival",0x77:"move_by_pos_until_arrival",0x78:"move_by_pos_until_arrival",0x81:"start_doing_taskset",0x82:"stop_doing_taskset",0x85:"start_playback_motion",0x86:"prepare_playback_motion",0x87:"start_playback_motion_from_prep",0x88:"stop_playback_motion",0x90:"pause_queue",0x91:"resume_queue",0x92:"wait_queue",0x94:"erase_task",0x95:"clear_queue",0x9A:"get_status",0xA0:"start_recording_taskset",0xA2:"stop_recording_taskset",0xA3:"erase_taskset",0xA4:"erase_all_tasksets",0xA5:"set_taskset_name",0xA6:"read_taskset_info",0xA7:"read_taskset_usage",0xA9:"start_teaching_motion",0xAA:"prepare_teaching_motion",0xAB:"start_teaching_motion_from_prep",0xAC:"stop_teaching_motion",0xAD:"erase_motion",0xAE:"erase_all_motions",0xAF:"set_motion_name",0xB0:"read_motion_info",0xB1:"read_motion_usage",0xB4:"get_motor_measuremet",0xB5:"get_imu_measurement"
-            ,0xB7:"read_motion" ,0xB8:"write_motion_position",0xE0:"set_led",0xE6:"enable_motor_measurement",0xE7:"disable_motor_measurement",0xEA:"enable_imu_measurement",0xEB:"disable_imu_measurement",0xF0:"reboot"}
+            ,0xB7:"read_motion" ,0xB8:"write_motion_position",0xBD:"set_button_setting", 0xE0:"set_led",0xE6:"enable_motor_measurement",0xE7:"disable_motor_measurement",0xEA:"enable_imu_measurement",0xEB:"disable_imu_measurement",0xF0:"reboot"}
+    
+    @property
+    def event_types(self):
+        return {1:"button", 10:"gpio"}
+    
     # Settings
     def set_max_speed(self,max_speed,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
@@ -281,6 +288,18 @@ class Controller:
         values=uint8_t2bytes(flag)
         self._run_command(command+identifier+values+crc16,'motor_rx')
 
+    def set_button_setting(self, mode, identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the button setting  (MotorFarmVar >2.28)
+        -----------
+        mode = 0:  Manual mode with Motion 
+        mode = 1:  Manual mode with Taskset
+        mode = 30: Parent mode (Receive button action)
+        -----------
+        """
+        command=b'\xBD'
+        values=uint8_t2bytes(mode)
+        self._run_command(command+identifier+values+crc16,'motor_rx')
 
     def read_register(self,register,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         '''
@@ -822,3 +841,9 @@ class Controller:
         pass
     def _read_motion_value(self):#dummy
         pass
+
+    def read_gpio_status(self):
+        """
+        Read the GPIO status of the motor.
+        """
+        return self._read_setting_value(0xCC)
