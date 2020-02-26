@@ -85,7 +85,7 @@ To use your Keigan Motor through USB serial, you need to add R/W permission to i
 
 BLE (for Linux Only)
 ----------------------
-You need to know the MAC address of you Keigan Motor for BLE connection.
+You need to know the MAC address of your Keigan Motor for BLE connection.
 
 For example, you can use the following simple script. Please run with sudo.
 
