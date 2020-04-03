@@ -101,7 +101,7 @@ class USBController(base.Controller):
 
     def __serial_schedule_worker(self):
         while True:
-            time.sleep(100 / 1000)  # 100ms
+            time.sleep(0.1)  # 100ms
             e_res = self.__read_serial_data()
             if e_res or self.auto_serial_reading == False:  # 例外発生でスレッド停止
                 self.auto_serial_reading = False
