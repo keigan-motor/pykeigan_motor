@@ -4,7 +4,8 @@
 Created on Thu Jan 10 09:13:24 2018
 
 @author: takata@innovotion.co.jp
-@author: harada@keigan.co.jp
+@author: Hiroshi Harada (Keigan Inc.)
+@author: Takashi Tokuda (Keigan Inc.)
 """
 from pykeigan import controller as base
 import serial, struct, threading, atexit, time
@@ -37,8 +38,10 @@ class USBController(base.Controller):
     def connect(self):
         """
         Open the USB port.
+        Should be after disconnection.
         """
-        self.serial = serial.Serial(self.port, 115200, 8, 'N', 1, None, False, True)
+        self.serial.open()
+        self.start_auto_serial_reading()
 
     def disconnect(self):
         """
