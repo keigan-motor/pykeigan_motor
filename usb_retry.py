@@ -59,7 +59,7 @@ def select_port():
 ----------------------
 
 """
-dev=usbcontroller.USBController(select_port(),False)#モーターのアドレス 参照 usb-simple-connection.py
+dev=usbcontroller.USBController(select_port(),baud=115200)#モーターのアドレス 参照 usb-simple-connection.py
 dev.enable_action()#安全装置。初めてモーターを動作させる場合に必ず必要。
 dev.set_speed(utils.rpm2rad_per_sec(5))#rpm -> radian/sec
 

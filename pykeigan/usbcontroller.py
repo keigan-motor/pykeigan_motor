@@ -13,7 +13,7 @@ from pykeigan.utils import *
 
 
 class USBController(base.Controller):
-    def __init__(self, port='/dev/ttyUSB0',debug_mode=False):
+    def __init__(self, port='/dev/ttyUSB0',debug_mode=False, baud=115200):
         self.DebugMode = debug_mode
         self.serial_buf = b''  # []
         self.setting_values = {}
@@ -23,7 +23,7 @@ class USBController(base.Controller):
         self.__motor_event_value = None
         self.__read_motion_value = []
         self.port = port
-        self.serial = serial.Serial(port, 115200, 8, 'N', 1, None, False, True)
+        self.serial = serial.Serial(port, baud, 8, 'N', 1, None, False, True)
         self.on_motor_measurement_value_cb = False
         self.on_motor_imu_measurement_cb = False
         self.on_motor_connection_error_cb = False

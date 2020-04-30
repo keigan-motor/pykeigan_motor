@@ -301,6 +301,23 @@ class Controller:
         values=uint8_t2bytes(mode)
         self._run_command(command+identifier+values+crc16,'motor_rx')
 
+    def set_baud_rate(self, baud, identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set baud rate for serial communication setting 
+        (baud rate unit is kbps)
+        -----------
+        0: 115200 
+        1: 230400 
+        2: 250000
+        3: 460800
+        4: 921600
+        5: 1000000 (1M)
+        -----------
+        """
+        command=b'\xC3'
+        values=uint8_t2bytes(baud)
+        self._run_command(command+identifier+values+crc16,'motor_rx')
+
     def read_register(self,register,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         '''
         Read a specified setting (register).
