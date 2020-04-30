@@ -151,6 +151,7 @@ class USBController(base.Controller):
             return
 
         slice_idx = bf_len  # 抽出済みとしてバッファーから削除するインデックス
+        success = False
 
         i = 0
         while i < bf_len-3:
@@ -163,13 +164,14 @@ class USBController(base.Controller):
                     if self.serial_buf[ie + 2:ie+4] == b'\x0d\x0a':
                         # crc = self.serial_buf[ie] << 8 | self.serial_buf[ie + 1]  # CRC
                         payload = self.serial_buf[i + 4: ie]  # 情報バイト
-                        self.__serialdataParse(payload)
+                        success = self.__serialdataParse(payload)
                         slice_idx = ie + 4
                         i = ie + 3
                         is_pre = False
                         break
             i += 1
         self.serial_buf = self.serial_buf[slice_idx:]
+        return success
 
     def __serialdataParse(self, byte_array):
         v_len = len(byte_array)
@@ -276,17 +278,20 @@ class USBController(base.Controller):
         if not (comm in valid_comms):
             raise ValueError("Unknown Command")
         self.read_register(comm)
-        time.sleep(0.15)
-        if not self.auto_serial_reading:
-            raise ValueError("Disabled reading serial data. Try calling start_auto_serial_reading()")
-        if comm in self.setting_values.keys():
-            val, received_unix_time = self.setting_values[comm]
+        time.sleep(0.02)
+        k = self.__read_serial_data()
+        if k:
+            print(k)
+            if comm in self.setting_values.keys():
+                val, received_unix_time = self.setting_values[comm]
             if time.time() - received_unix_time < validation_threshold:
                 return val
             else:
                 raise ValueError("No data within ", validation_threshold, " sec")
         else:
             raise ValueError("No data received")
+
+        
 
     def __read_measurement_value(self, comm, validation_threshold=1.0):
         measurement_value=None
