@@ -317,7 +317,22 @@ class Controller:
 
     def set_motor_measurement_interval(self,interval,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
-        Set the interval to acquire motor measurement values. It is valid only for a wired connection(USB and I2C).
+        Set the notification interval of motor measurement values. It is valid only for USB(UART) and BLE.
+        In case of BLE, the allowed minimum value is 100 [ms]. 
+        -----------
+        0:      2 [ms]
+        1:      5 [ms]
+        2:     10 [ms]
+        3:     20 [ms]
+        4:     50 [ms]
+        5:    100 [ms]
+        6:    200 [ms]
+        7:    500 [ms]
+        8:   1000 [ms]
+        9:   2000 [ms]
+        10:  5000 [ms]
+        11: 10000 [ms]
+        -----------        
         """
         command=b'\x2C'
         values = uint8_t2bytes(interval)
@@ -358,16 +373,16 @@ class Controller:
         If you want to force it to send measurement values through USB,
         you need to set bit0(BLE) to OFF(0) and bit3(USB) to ON(1).
         For example, if you call set_interface(0b10001000), Physical 3 buttons: enabled, I2C: disabled, USB: enabled and BLE: disabled.
-        To save this setting to the flash memory, ensure you call save_all_registers() .
+        To save this setting to the flash memory, ensure you call saveAllRegisters().@n
         -----------
-        bit7: Physical 3 buttons
-        bit6: -
-        bit5: -
-        bit4: I2C(Wired)
-        bit3: USB(Wired)
-        bit2: -
-        bit1: -
-        bit0: BLE(Wireless)
+        - bit7: Physical 3 buttons
+        - bit6: UART2
+        - bit5: -
+        - bit4: I2C(Wired)
+        - bit3: UART1(USB, Wired)
+        - bit2: -
+        - bit1: Linkage
+        - bit0: BLE(Wireless)
         -----------
         """
         command=b'\x2E'
@@ -384,7 +399,20 @@ class Controller:
 
     def set_imu_measurement_interval(self,interval,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
-        Set the interval to acquire IMU measurement values. It is valid only for a wired connection(USB and I2C).
+        Set the notification interval of IMU measurement values. It is valid only for USB(UART) and BLE.
+        In case of BLE, the allowed minimum value is 100 [ms]. 
+        -----------
+        0:     10 [ms]
+        1:     20 [ms]
+        2:     50 [ms]
+        3:    100 [ms]
+        4:    200 [ms]
+        5:    500 [ms]
+        6:   1000 [ms]
+        7:   2000 [ms]
+        9:   5000 [ms]
+        10: 10000 [ms]
+        -----------     
         """
         command=b'\x3C'
         values = uint8_t2bytes(interval)
