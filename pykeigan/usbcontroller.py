@@ -104,7 +104,6 @@ class USBController(base.Controller):
 
     def __serial_schedule_worker(self):
         while True:
-            print('__serial_schedule_worker')
             time.sleep(0.1)  # 100ms
             e_res = self.__read_serial_data()
             if e_res or self.auto_serial_reading == False:  # 例外発生でスレッド停止
@@ -172,7 +171,6 @@ class USBController(base.Controller):
                         break
             i += 1
         self.serial_buf = self.serial_buf[slice_idx:]
-        return success
 
     def __serialdataParse(self, byte_array):
         v_len = len(byte_array)
