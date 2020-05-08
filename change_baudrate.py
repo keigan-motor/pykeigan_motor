@@ -17,9 +17,6 @@ from time import sleep
 current_dir = pathlib.Path(__file__).resolve().parent
 sys.path.append( str(current_dir) + '/../' )
 
-print(sys.path)
-
-
 from pykeigan import usbcontroller
 from pykeigan import utils
 
@@ -50,10 +47,25 @@ def select_port():
 
     return portdev
 
+def baud_rate_setting():
+    print('Select baud rate to set')
+    print('--------')
+    print('0: 115200')
+    print('1: 230400')
+    print('2: 250000')
+    print('3: 460800')
+    print('4: 921600')
+    print('5: 1000000 (1M)')
+    print('--------')
+    num = int(input())
+    while num < 0 or num > 5:
+        print('Invalid value!')
+        num = int(input())
+    return num
 
 
-dev=usbcontroller.USBController(select_port(),baud=115200)#モーターのアドレス 参照 usb-simple-connection.py
-dev.set_baud_rate(5) #5: 1Mbps
+dev=usbcontroller.USBController(select_port(),baud=1000000) # Set the current baudrate to communicate
+dev.set_baud_rate(baud_rate_setting()) #5: 1Mbps
 dev.save_all_registers()
 sleep(1)
 dev.reboot()
