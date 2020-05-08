@@ -69,7 +69,7 @@ class Controller:
                 0x23:"set_pid_table_value",
                 0x24:"select_pid_table",
                 0x25:"read_pid_table",
-                0x27:"set_low_pass_filter"
+                0x27:"set_low_pass_filter",
                 0x2B:"set_notify_pos_arrival",
                 0x2C:"set_motor_measurement_interval",
                 0x2D:"set_motor_measurement_settings",
@@ -78,7 +78,7 @@ class Controller:
                 0x31:"set_safe_run_settings",
                 0x32:"set_safety_settings",
                 0x33:"set_limit_current",
-                0x37:"set_linkage_key"
+                0x37:"set_linkage_key",
                 0x3A:"set_own_color",
                 0x3C:"set_imu_measurement_interval",
                 0x3D:"set_imu_measurement_settings",
@@ -387,6 +387,24 @@ class Controller:
         """
         command=b'\x2E'
         values=uint8_t2bytes(flag)
+        self._run_command(command+identifier+values+crc16,'motor_rx')
+
+    def set_safe_run_settings(self,isEnabled,timeout,stopAction,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """set_safe_run_settings
+
+        Set safe run mode to stop motor automatically when it cannot receive next command within a certain period (timeout).
+
+        Args:
+            isEnabled (bool): true if setting safe run mode enabled
+            timeout (int): stop action will occur after this period
+            stopAction (int):
+                - 0: free_motor
+                - 1: disable_motor_action
+                - 2: stop_motor
+                - 3: Fix to the current position (move_to)
+        """
+        command=b'\x31'
+        values=uint8_t2bytes(isEnabled)+uint32_t2bytes(timeout)+uint8_t2bytes(stopAction)
         self._run_command(command+identifier+values+crc16,'motor_rx')
 
     def set_own_color(self,red,green,blue,identifier=b'\x00\x00',crc16=b'\x00\x00'):
@@ -1001,6 +1019,25 @@ class Controller:
         Read the motor status: 'isCheckSumEnabled', 'iMUMeasurement', 'motorMeasurement', 'queue', 'motorEnabled', 'flash_memory_state', 'motor_control_mode'.
         """
         return self._read_setting_value(0x9A)
+
+    def read_baud_rate(self):
+        """
+        Get the baud rate of UART(USB).
+        """
+        return self._read_setting_value(0xC3)        
+
+    def read_motor_measurement_interval(self):
+        """
+        Get the motor measurement interval.
+        """
+        return self._read_setting_value(0x2C)                
+
+    def read_imu_measurement_interval(self):
+        """
+        Get the motor measurement interval.
+        """
+        return self._read_setting_value(0x3C) 
+
 
     def _read_setting_value(self, comm):#dummy
         pass
