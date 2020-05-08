@@ -24,6 +24,10 @@ class Controller:
         return {0:"MOTOR_CONTROL_MODE_NONE",1:"MOTOR_CONTROL_MODE_VELOCITY",2:"MOTOR_CONTROL_MODE_POSITION",3:"MOTOR_CONTROL_MODE_TORQUE",0xFF:"MOTOR_CONTROL_MODE_OTHERS"}
     
     @property
+    def baud_rates(self):
+        return {0:"115200",1:"230400",2:"250000",3:"460800",4:"921600",5:"1000000"}
+
+    @property
     def error_codes(self):
         return {
                 0x00:"KM_SUCCESS",
