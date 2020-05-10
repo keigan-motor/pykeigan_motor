@@ -23,6 +23,7 @@ class USBController(base.Controller):
         self.__motor_event_value = None
         self.__read_motion_value = []
         self.port = port
+        self.read_serial_polling_time = 0.1 #0.004 
         self.serial = serial.Serial(port, baud, 8, 'N', 1, None, False, True)
         self.on_motor_measurement_value_cb = False
         self.on_motor_imu_measurement_cb = False
@@ -41,6 +42,11 @@ class USBController(base.Controller):
         Should be after disconnection.
         """
         self.serial.open()
+        #if self.serial.is_open
+        #time.sleep(2)
+        #self.start_auto_serial_reading()
+    
+    def recover(self):
         self.start_auto_serial_reading()
 
     def disconnect(self):
@@ -64,6 +70,7 @@ class USBController(base.Controller):
         self.DebugMode = False
 
     def start_auto_serial_reading(self):
+        print("start_auto_serial_reading")
         self.auto_serial_reading = True
         self.t = threading.Thread(target=self.__serial_schedule_worker)
         self.t.setDaemon(True)
@@ -104,16 +111,21 @@ class USBController(base.Controller):
 
     def __serial_schedule_worker(self):
         while True:
-            time.sleep(0.1)  # 100ms
+            #time.sleep(0.1)  # 100ms
+            print("schedule")
+            print(self.serial.is_open)
+            time.sleep(self.read_serial_polling_time) # less than minimum motor measurement interval
             e_res = self.__read_serial_data()
-            if e_res or self.auto_serial_reading == False:  # 例外発生でスレッド停止
-                self.auto_serial_reading = False
-                break
+            print(e_res)
+            #if e_res or self.auto_serial_reading == False:  # 例外発生でスレッド停止
+             #   self.auto_serial_reading = False
+              #  break
+
 
     def __read_serial_data(self):
-        # rd = self.serial.read(self.serial.inWaiting())
         try:
             rd = self.serial.read(self.serial.inWaiting())
+            print(rd.hex())
         except serial.SerialException as e:
             self.serial.close()
             # There is no new data from serial port
@@ -140,6 +152,7 @@ class USBController(base.Controller):
 
             #print bt.encode('hex')
         '''
+
         self.serial_buf += rd
         # ------------------------------#
         #   プリアンブル検出ロジック　
