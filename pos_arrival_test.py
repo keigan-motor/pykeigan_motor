@@ -73,9 +73,7 @@ def on_motor_log_cb(log):
 
 
 
-# エラー情報callback
-
-
+# モーター接続エラーcallback
 def on_motor_connection_error_cb(e):
     print("\033[16;2H\033[2K", end="", flush=True)
     print('error {} '.format(e), end="", flush=True)
@@ -99,9 +97,11 @@ def on_motor_connection_error_cb(e):
             sleep(1.5)
             continue  # エラー停止にしないでwhileループの頭に戻る
 
+# モーター再接続 callback
+def on_motor_reconnection_cb(cnt):
+    go_round()
+
 # モーター回転情報callback
-
-
 def on_motor_measurement_cb(measurement):
     #print("\033[2;2H\033[2K", end="")
     # , end="", flush=True)
@@ -111,7 +111,8 @@ def on_motor_measurement_cb(measurement):
 
 dev = usbcontroller.USBController(select_port())
 dev.on_motor_log_cb = on_motor_log_cb
-dev.on_motor_connection_error_cb = on_motor_connection_error_cb
+#dev.on_motor_connection_error_cb = on_motor_connection_error_cb
+dev.on_motor_reconnection_cb = on_motor_reconnection_cb
 dev.on_motor_measurement_value_cb = on_motor_measurement_cb
 dev.enable_action()
 dev.set_speed(utils.rpm2rad_per_sec(200))

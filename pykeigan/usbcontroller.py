@@ -13,7 +13,7 @@ from pykeigan.utils import *
 
 
 class USBController(base.Controller):
-    def __init__(self, port='/dev/ttyUSB0',debug_mode=False, baud=115200):
+    def __init__(self, port='/dev/ttyUSB0',debug_mode=False, baud=115200, reconnect=True):
         self.DebugMode = debug_mode
         self.serial_buf = b''  # []
         self.setting_values = {}
@@ -24,10 +24,14 @@ class USBController(base.Controller):
         self.__read_motion_value = []
         self.port = port
         self.read_serial_polling_time = 0.1 #0.004 
+        self.shouldReconnect = reconnect
+        self.try_reconnect = False
+        self.reconn_err_cnt = 0
         self.serial = serial.Serial(port, baud, 8, 'N', 1, None, False, True)
         self.on_motor_measurement_value_cb = False
         self.on_motor_imu_measurement_cb = False
         self.on_motor_connection_error_cb = False
+        self.on_motor_reconnection_cb = False
         self.on_read_motion_read_comp_cb = False
         self.on_motor_log_cb = False
         self.on_motor_event_cb = False
@@ -57,6 +61,28 @@ class USBController(base.Controller):
         time.sleep(0.5)
         self.serial.close()
 
+    def reconnect(self):     
+        if not self.shouldReconnect or self.try_reconnect: return  
+        self.try_reconnect = True
+        print('Try to reconnect: ', self.port)
+        while True:  # 接続できるまで接続試行を指定回数繰り返す
+            try:
+                # try to reconnect
+                self.connect()  # 接続を再構築
+                print('Serial connection established.')
+                # sleep(2)
+                self.start_auto_serial_reading()
+                self.try_reconnect = False
+                if (callable(self.on_motor_reconnection_cb)):              
+                    self.on_motor_reconnection_cb(self.reconn_err_cnt)
+                break  # 接続に成功したのでwhileを抜ける
+            except serial.serialutil.SerialException:  # 接続の再構築に失敗した場合はこちらに遷移
+                self.reconn_err_cnt += 1  # 試行済回数を上げる
+                print('Serial connection Failed.', self.reconn_err_cnt)
+                time.sleep(1)
+                continue  # エラー停止にしないでwhileループの頭に戻る
+
+    
     def start_debug(self):
         """
         Start to print command logs.
@@ -93,27 +119,27 @@ class USBController(base.Controller):
             self.serial.write(val)
         except serial.SerialException as e:
             self.serial.close()
+            self.reconnect()
             # There is no new data from serial port
-            if (callable(self.on_motor_connection_error_cb)):
+            if (callable(self.on_motor_connection_error_cb)):              
                 self.on_motor_connection_error_cb(e)
             return e
         except TypeError as e:
             # Disconnect of USB->UART occured
             self.serial.close()
+            self.reconnect()
             if (callable(self.on_motor_connection_error_cb)):
                 self.on_motor_connection_error_cb(e)
             return e
         except IOError as e:
             self.serial.close()
+            self.reconnect()
             if (callable(self.on_motor_connection_error_cb)):
                 self.on_motor_connection_error_cb(e)
             return e
 
     def __serial_schedule_worker(self):
         while True:
-            #time.sleep(0.1)  # 100ms
-            print("schedule")
-            print(self.serial.is_open)
             time.sleep(self.read_serial_polling_time) # less than minimum motor measurement interval
             e_res = self.__read_serial_data()
             print(e_res)
@@ -125,9 +151,9 @@ class USBController(base.Controller):
     def __read_serial_data(self):
         try:
             rd = self.serial.read(self.serial.inWaiting())
-            print(rd.hex())
         except serial.SerialException as e:
             self.serial.close()
+            self.reconnect()
             # There is no new data from serial port
             if (callable(self.on_motor_connection_error_cb)):
                 self.on_motor_connection_error_cb(e)
@@ -135,11 +161,13 @@ class USBController(base.Controller):
         except TypeError as e:
             # Disconnect of USB->UART occured
             self.serial.close()
+            self.reconnect()
             if (callable(self.on_motor_connection_error_cb)):
                 self.on_motor_connection_error_cb(e)
             return e
         except IOError as e:
             self.serial.close()
+            self.reconnect()
             if (callable(self.on_motor_connection_error_cb)):
                 self.on_motor_connection_error_cb(e)
             return e
