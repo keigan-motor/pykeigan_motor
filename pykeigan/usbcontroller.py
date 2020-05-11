@@ -27,6 +27,7 @@ class USBController(base.Controller):
         self.shouldReconnect = reconnect
         self.try_reconnect = False
         self.reconn_err_cnt = 0
+        self.total_reconnect_cnt = 0
         self.serial = serial.Serial(port, baud, 8, 'N', 1, None, False, True)
         self.on_motor_measurement_value_cb = False
         self.on_motor_imu_measurement_cb = False
@@ -65,12 +66,12 @@ class USBController(base.Controller):
         if not self.shouldReconnect or self.try_reconnect: return  
         self.try_reconnect = True
         print('Try to reconnect: ', self.port)
+        self.total_reconnect_cnt += 1
         while True:  # 接続できるまで接続試行を指定回数繰り返す
             try:
                 # try to reconnect
                 self.connect()  # 接続を再構築
-                print('Serial connection established.')
-                # sleep(2)
+                print('Serial reconnection established.')
                 self.start_auto_serial_reading()
                 self.try_reconnect = False
                 if (callable(self.on_motor_reconnection_cb)):              
@@ -78,7 +79,7 @@ class USBController(base.Controller):
                 break  # 接続に成功したのでwhileを抜ける
             except serial.serialutil.SerialException:  # 接続の再構築に失敗した場合はこちらに遷移
                 self.reconn_err_cnt += 1  # 試行済回数を上げる
-                print('Serial connection Failed.', self.reconn_err_cnt)
+                print('Serial reconnection Failed.', self.reconn_err_cnt)
                 time.sleep(1)
                 continue  # エラー停止にしないでwhileループの頭に戻る
 
@@ -105,6 +106,7 @@ class USBController(base.Controller):
 
     def finish_auto_serial_reading(self):
         self.auto_serial_reading = False
+        self.t.stop()
 
     def __all_done(self):
         try:
@@ -142,10 +144,11 @@ class USBController(base.Controller):
         while True:
             time.sleep(self.read_serial_polling_time) # less than minimum motor measurement interval
             e_res = self.__read_serial_data()
-            print(e_res)
-            #if e_res or self.auto_serial_reading == False:  # 例外発生でスレッド停止
-             #   self.auto_serial_reading = False
-              #  break
+            #print("e_res: ", e_res, "self.auto_serial_reading: ", self.auto_serial_reading)
+            if e_res :  # 例外発生でスレッド停止
+                print("stop auto_serial_reading")
+                self.auto_serial_reading = False
+                break
 
 
     def __read_serial_data(self):
@@ -170,7 +173,8 @@ class USBController(base.Controller):
             self.reconnect()
             if (callable(self.on_motor_connection_error_cb)):
                 self.on_motor_connection_error_cb(e)
-            return e
+            return e      
+
         '''
         for bt in rd:
             if type(bt) is str:
@@ -368,4 +372,5 @@ class USBController(base.Controller):
 
     #修了イベント　測定値のスレッドを停止する後処理
     def my_cleanup(self):
+        print("cleanup")
         self.finish_auto_serial_reading()

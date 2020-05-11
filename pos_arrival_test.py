@@ -42,13 +42,13 @@ def select_port():
     if portnum in range(len(portlist)):
         portdev = portlist[portnum].device
 
-    print('Conncted to', portdev)
+    print('Connected to', portdev)
 
     return portdev
 
 
 # isGo means on the way, !isGo means on the way back.
-isGo = False
+isGo = True
 
 def go_round():
     global isGo
@@ -72,31 +72,6 @@ def on_motor_log_cb(log):
         go_round()
 
 
-
-# モーター接続エラーcallback
-def on_motor_connection_error_cb(e):
-    print("\033[16;2H\033[2K", end="", flush=True)
-    print('error {} '.format(e), end="", flush=True)
-    com_err_cnt = 0
-    while True:  # 接続できるまで接続試行を指定回数繰り返す
-        com_state = False
-        print("3")
-        #print('Serial connection lost. Retrying {} times'.format(com_err_cnt+1))
-        dev.disconnect()  # 接続断
-        try:  # 接続の再構築
-            dev.connect()  # 接続を再構築
-            #dev = usbcontroller.USBController(args.port,False)
-            print('Serial connection established.')
-            sleep(2)
-            dev.recover()
-            go_round()
-            break  # 接続に成功したのでwhileを抜ける
-        except serial.serialutil.SerialException:  # 接続の再構築に失敗した場合はこちらに遷移
-            com_err_cnt += 1  # 試行済回数を上げる
-            print('Serial connection Failed. count: ', com_err_cnt)
-            sleep(1.5)
-            continue  # エラー停止にしないでwhileループの頭に戻る
-
 # モーター再接続 callback
 def on_motor_reconnection_cb(cnt):
     go_round()
@@ -116,8 +91,7 @@ dev.on_motor_reconnection_cb = on_motor_reconnection_cb
 dev.on_motor_measurement_value_cb = on_motor_measurement_cb
 dev.enable_action()
 dev.set_speed(utils.rpm2rad_per_sec(200))
-dev.move_to_pos(utils.deg2rad(1080))
-isGo = True
+go_round()
 
 """
 Exit with key input
