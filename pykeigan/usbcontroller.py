@@ -97,7 +97,6 @@ class USBController(base.Controller):
         self.DebugMode = False
 
     def start_auto_serial_reading(self):
-        print("start_auto_serial_reading")
         self.auto_serial_reading = True
         self.t = threading.Thread(target=self.__serial_schedule_worker)
         self.t.setDaemon(True)
@@ -106,7 +105,6 @@ class USBController(base.Controller):
 
     def finish_auto_serial_reading(self):
         self.auto_serial_reading = False
-        self.t.stop()
 
     def __all_done(self):
         try:
@@ -144,9 +142,7 @@ class USBController(base.Controller):
         while True:
             time.sleep(self.read_serial_polling_time) # less than minimum motor measurement interval
             e_res = self.__read_serial_data()
-            #print("e_res: ", e_res, "self.auto_serial_reading: ", self.auto_serial_reading)
             if e_res :  # 例外発生でスレッド停止
-                print("stop auto_serial_reading")
                 self.auto_serial_reading = False
                 break
 
@@ -284,7 +280,7 @@ class USBController(base.Controller):
             if self.DebugMode:
                 print(self.__motor_log_value['command_names'],self.__motor_log_value['error_codes'])
             return True
-        elif datatype == 0xB7: #Position coordinates of "readMotion" (Motor farm ver>=2.0)
+        elif datatype == 0xB7: #Position coordinates of "readMotion" (Motor firmware ver>=2.0)
             motion_index=bytes2uint16_t(payload[0:2])
             total_pos_len = bytes2uint32_t(payload[2:6])
             payload_fast_pos_idx=bytes2uint32_t(payload[6:10])
@@ -322,18 +318,18 @@ class USBController(base.Controller):
         if not (comm in valid_comms):
             raise ValueError("Unknown Command")
         self.read_register(comm)
-        time.sleep(0.02)
-        k = self.__read_serial_data()
-        if k:
-            print(k)
-            if comm in self.setting_values.keys():
-                val, received_unix_time = self.setting_values[comm]
+        time.sleep(0.15)
+        if not self.auto_serial_reading:
+            raise ValueError("Disabled reading serial data. Try calling start_auto_serial_reading()")
+        if comm in self.setting_values.keys():
+            val, received_unix_time = self.setting_values[comm]
             if time.time() - received_unix_time < validation_threshold:
                 return val
             else:
                 raise ValueError("No data within ", validation_threshold, " sec")
         else:
             raise ValueError("No data received")
+            
 
         
 
@@ -372,5 +368,4 @@ class USBController(base.Controller):
 
     #修了イベント　測定値のスレッドを停止する後処理
     def my_cleanup(self):
-        print("cleanup")
         self.finish_auto_serial_reading()
