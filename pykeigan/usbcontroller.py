@@ -23,7 +23,7 @@ class USBController(base.Controller):
         self.__motor_event_value = None
         self.__read_motion_value = []
         self.port = port
-        self.read_serial_polling_time = 0.1 #0.004 
+        self.read_serial_polling_time = 0.004 
         self.shouldReconnect = reconnect
         self.try_reconnect = False
         self.reconn_err_cnt = 0
