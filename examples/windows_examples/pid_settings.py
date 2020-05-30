@@ -65,6 +65,7 @@ def on_motor_measurement_cb(measurement):
 
 
 def read_pid_settings(motor):
+    print('\rread_pid_settings')
     qCurrentP = motor.read_qcurrent_p()
     qCurrentI = motor.read_qcurrent_i()
     qCurrentD = motor.read_qcurrent_d()
@@ -75,6 +76,7 @@ def read_pid_settings(motor):
     positionI = motor.read_position_i()
     positionD = motor.read_position_d()
     threshold = motor.read_pos_control_threshold()
+    print('-------')
     print('qCurrent gain P: ',qCurrentP)
     print('qCurrent gain I: ',qCurrentI)
     print('qCurrent gain D: ',qCurrentD)
@@ -84,10 +86,34 @@ def read_pid_settings(motor):
     print('position gain P: ',positionP)
     print('position gain I: ',positionI)
     print('position gain D: ',positionD)
-    print('position PID control threshold: ', threshold)
+    print('position PID threshold [rad]: ', threshold)
+    print('position PID threshold [deg]: ', utils.rad2deg(threshold))
+    print('-------')
 
-dev = usbcontroller.USBController(select_port())
-read_pid_settings(dev)
+def read_device_name(motor):
+    name = motor.read_device_name()
+    print('Device Name: ', name)
 
-while True:
-    sleep(1)
+
+if __name__ == '__main__':
+    dev = usbcontroller.USBController(select_port())
+    read_device_name(dev)
+    read_pid_settings(dev)
+    try:
+        while True:
+            sleep(0.01)
+            if msvcrt.kbhit():
+                c = msvcrt.getwch()
+                print(c)
+
+                if c == 'r':
+                    read_pid_settings(dev)
+                elif c == 'n':
+                    read_device_name(dev)
+                elif c == 's':
+                    dev.stop_motor()
+
+    except KeyboardInterrupt:
+        if dev:
+            dev.disable_action()
+        print('Ctrl-C')
