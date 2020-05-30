@@ -8,8 +8,9 @@ Created on Thr Jan 10 09:13:24 2018
 
 import sys
 import pathlib
+
 current_dir = pathlib.Path(__file__).resolve().parent
-sys.path.append( str(current_dir) + '/../' )
+sys.path.insert(0, str(current_dir) + '/../') # give 1st priority to the directory where pykeigan exists
 
 from pykeigan import blecontroller
 from bluepy.btle import Scanner

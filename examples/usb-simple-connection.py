@@ -11,8 +11,9 @@ from argparse import RawTextHelpFormatter
 import sys
 import pathlib
 import time
+
 current_dir = pathlib.Path(__file__).resolve().parent
-sys.path.append( str(current_dir) + '/../' )
+sys.path.insert(0, str(current_dir) + '/../') # give 1st priority to the directory where pykeigan exists
 
 from pykeigan import usbcontroller
 from pykeigan import utils

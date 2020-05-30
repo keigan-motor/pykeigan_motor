@@ -4,6 +4,9 @@ import serial.tools.list_ports
 import sys
 from time import sleep
 
+current_dir = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(current_dir) + '/../../') # give 1st priority to the directory where pykeigan exists
+
 from pykeigan import usbcontroller
 from pykeigan import utils
 

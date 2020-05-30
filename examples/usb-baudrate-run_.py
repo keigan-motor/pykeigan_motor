@@ -20,6 +20,21 @@ sys.path.append( str(current_dir) + '/../' )
 from pykeigan import usbcontroller
 from pykeigan import utils
 
+"""
+----------------------
+Run after Change of Baud Rate 
+You need to execute "usb-baudrate-change.py" before executing this sample 
+Choose COM port connected to KeiganMotor, and
+Choose baud rate that you set by "usb-baudrate-change.py".
+
+ボーレート変更後の動作確認
+本サンプル実行前に、"usb-baudrate-change.py" を実行してボーレートを変更すること
+COMポートと、"usb-baudrate-change.py" で設定したボーレートを選択する
+----------------------
+
+"""
+# This sample requires KM-1 firmware version more than 2.37
+
 baud_rates = {0:"115200",1:"230400",2:"250000",3:"460800",4:"921600",5:"1000000"}
 
 def select_port():
