@@ -74,7 +74,7 @@ class Controller:
                 0x24:"select_pid_table",
                 0x25:"read_pid_table",
                 0x27:"set_low_pass_filter",
-                0x2B:"set_notify_pos_arrival",
+                0x2B:"set_notify_pos_arrival_settings",
                 0x2C:"set_motor_measurement_interval",
                 0x2D:"set_motor_measurement_settings",
                 0x2E:"set_interface",
@@ -487,6 +487,16 @@ class Controller:
         command=b'\xC3'
         values=uint8_t2bytes(baud)
         self._run_command(command+identifier+values+crc16,'motor_rx')
+
+
+    def set_notify_pos_arrival_settings(self, isEnabled, tolerance, settleTime, identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set notification settings when arriving at the target position 
+        """
+        command=b'\x2B'
+        values=uint8_t2bytes(isEnabled)+float2bytes(tolerance)+uint32_t2bytes(settleTime)
+        self._run_command(command+identifier+values+crc16,'motor_rx')
+
 
     def read_register(self,register,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         '''
