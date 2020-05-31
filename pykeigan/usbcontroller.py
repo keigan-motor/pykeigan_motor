@@ -149,6 +149,7 @@ class USBController(base.Controller):
 
     def __read_serial_data(self):
         try:
+            #print(self.serial.in_waiting, self.serial.inWaiting())
             rd = self.serial.read(self.serial.inWaiting())
         except serial.SerialException as e:
             self.serial.close()
@@ -193,7 +194,7 @@ class USBController(base.Controller):
 
         slice_idx = bf_len  # 抽出済みとしてバッファーから削除するインデックス
         success = False
-
+        #print(self.serial_buf.hex())
         i = 0
         while i < bf_len-3:
             # プリアンブル検出

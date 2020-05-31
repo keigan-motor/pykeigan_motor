@@ -111,7 +111,11 @@ if __name__ == '__main__':
                 elif c == 'n':
                     read_device_name(dev)
                 elif c == 's':
-                    dev.stop_motor()
+                    dev.save_all_registers()
+                elif c == 'd':
+                    dev.reset_all_pid()
+                elif c == 'b':
+                    dev.reboot()
 
     except KeyboardInterrupt:
         if dev:

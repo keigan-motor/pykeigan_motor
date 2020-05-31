@@ -6,8 +6,6 @@ Created on Thr Jan 10 09:13:24 2018
 Keigan Inc.
 """
 
-from pykeigan import utils
-from pykeigan import usbcontroller
 import argparse
 import sys
 import pathlib
@@ -17,8 +15,10 @@ import serial.tools.list_ports
 from time import sleep
 
 current_dir = pathlib.Path(__file__).resolve().parent
-sys.path.append(str(current_dir) + '/../')
+sys.path.insert(0, str(current_dir) + '/../../') # give 1st priority to the directory where pykeigan exists
 
+from pykeigan import utils
+from pykeigan import usbcontroller
 
 def select_port():
     print('Available COM ports list')
@@ -90,11 +90,14 @@ dev.on_motor_log_cb = on_motor_log_cb
 dev.on_motor_reconnection_cb = on_motor_reconnection_cb
 dev.on_motor_measurement_value_cb = on_motor_measurement_cb
 dev.enable_action()
+dev.set_pos_control_threshold(utils.deg2rad(2)) # 位置のPID制御有効区間を大きくしておく 0.8[deg] -> 2.0[deg]
+dev.set_notify_pos_arrival_settings(True, 0.00872665, 200) # 0.00872665[rad] = 0.5[deg] に 到達して 200[ms] 経過で モーターから位置到達通知
 dev.set_speed(utils.rpm2rad_per_sec(200))
 go_round()
 
 """
 Exit with key input
 """
+
 while True:
     sleep(0.1)

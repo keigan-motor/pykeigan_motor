@@ -68,17 +68,38 @@ dev = usbcontroller.USBController(select_port())
 #dev.on_motor_log_cb = on_motor_log_cb
 dev.on_motor_measurement_value_cb = on_motor_measurement_cb
 dev.enable_action()
-dev.set_curve_type(0)
+dev.set_curve_type(10) # 10: ダイレクト位置制御（速度制限、カーブなしで位置制御を行う。振動対策）
 dev.set_speed_i(0)
-dev.set_pos_control_threshold(utils.deg2rad(10800))
-dev.set_position_p(10)
-dev.set_position_i(2)
-dev.set_speed(utils.rpm2rad_per_sec(20))
-dev.set_notify_pos_arrival_settings(False, 1, 0)
-#dev.set_safe_run_settings(True, 5000, 0) # 第1引数が True の場合、5000[ms]以内に次の動作命令が来ないと、停止する 0:free,1:disable,2:stop, 3:position固定
+#dev.set_pos_control_threshold(utils.deg2rad(2))
+#dev.set_position_p(10)
+#dev.set_position_i(2)
+#dev.set_speed(utils.rpm2rad_per_sec(20))
+# 連続で動作命令を送る場合、位置到達時の通知設定をOFFとする必要がある
+# dev.set_notify_pos_arrival_settings(False, 0.00872665, 200) # 第1引数 False で無効化
+dev.set_safe_run_settings(True, 100, 3) # 第1引数が True の場合、5000[ms]以内に次の動作命令が来ないと、停止する 0:free,1:disable,2:stop, 3:position固定
+
+# 最初 0[deg] へ移動
+targetPos = 0
+inc = 0
 """
 Exit with key input
 """
-while True:
-    dev.move_to_pos(utils.deg2rad(0))
-    sleep(0.01)
+try:
+    while True:
+        dev.move_to_pos(utils.deg2rad(targetPos+inc))
+        inc += 0.1 # 少しずつ目標位置をずらしていく。位置固定の場合はこの行をコメントアウト
+        sleep(0.01)
+        if msvcrt.kbhit():
+            c = msvcrt.getwch()
+            print(c)
+            if c == 'f': # 1080[deg] へ移動
+                targetPos = 1080
+            elif c == 'b': # 0[deg] へ移動
+                targetPos = 0
+
+
+
+except KeyboardInterrupt:
+    if dev:
+        dev.disable_action()
+    print('Ctrl-C')

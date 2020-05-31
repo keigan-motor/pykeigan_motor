@@ -15,27 +15,23 @@ import serial.tools.list_ports
 from time import sleep
 
 current_dir = pathlib.Path(__file__).resolve().parent
-sys.path.append( str(current_dir) + '/../' )
+sys.path.insert(0, str(current_dir) + '/../../') # give 1st priority to the directory where pykeigan exists
 
 from pykeigan import usbcontroller
 from pykeigan import utils
 
 """
 ----------------------
-Run after Change of Baud Rate 
-You need to execute "usb-baudrate-change.py" before executing this sample 
-Choose COM port connected to KeiganMotor, and
-Choose baud rate that you set by "usb-baudrate-change.py".
-
-ボーレート変更後の動作確認
-本サンプル実行前に、"usb-baudrate-change.py" を実行してボーレートを変更すること
-COMポートと、"usb-baudrate-change.py" で設定したボーレートを選択する
+Change Baud Rate 
+You can check new baud rate by "baudrate_run.py" after executing this sample 
+Set the current baud rate to current_baud
+ボーレートの変更
+本サンプル実行後、"baudrate_run.py" で動作確認が可能
+以下の current_baud に現在のボーレートを入れること
 ----------------------
 
 """
-# This sample requires KM-1 firmware version more than 2.37
-
-baud_rates = {0:"115200",1:"230400",2:"250000",3:"460800",4:"921600",5:"1000000"}
+current_baud = 115200
 
 def select_port():
     print('Available COM ports list')
@@ -63,9 +59,8 @@ def select_port():
 
     return portdev
 
-
 def baud_rate_setting():
-    print('Select baud rate')
+    print('Select baud rate to set')
     print('--------')
     print('0: 115200')
     print('1: 230400')
@@ -80,9 +75,12 @@ def baud_rate_setting():
         num = int(input())
     return num
 
-port = select_port()
-baud_rate = baud_rates[baud_rate_setting()]
-dev=usbcontroller.USBController(port,baud=baud_rate)
-dev.enable_action() #5: 1Mbps
-dev.run_at_velocity(utils.rpm2rad_per_sec(10))
+
+dev=usbcontroller.USBController(select_port(),baud=current_baud) # Set the current baudrate to communicate
+dev.set_baud_rate(baud_rate_setting()) #5: 1Mbps
+dev.save_all_registers()
+sleep(1)
+dev.reboot()
+
+
 

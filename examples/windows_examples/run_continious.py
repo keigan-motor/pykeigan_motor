@@ -68,13 +68,13 @@ dev = usbcontroller.USBController(select_port())
 dev.on_motor_log_cb = on_motor_log_cb
 dev.on_motor_measurement_value_cb = on_motor_measurement_cb
 dev.enable_action()
-#dev.set_curve_type(0)
-dev.set_speed_p(1)
-dev.set_safe_run_settings(True, 5000, 0) # 第1引数が True の場合、5000[ms]以内に次の動作命令が来ないと、停止する 0:free,1:disable,2:stop, 3:position固定
-dev.run_at_velocity(utils.rpm2rad_per_sec(100))
+dev.set_curve_type(0)
+dev.set_speed_p(10)
+dev.set_safe_run_settings(True, 100, 1) # 第1引数が True の場合、5000[ms]以内に次の動作命令が来ないと、停止する 0:free,1:disable,2:stop, 3:position固定
+dev.run_at_velocity(utils.rpm2rad_per_sec(20))
 """
 Exit with key input
 """
 while True:
-    dev.run_at_velocity(utils.rpm2rad_per_sec(100))
-    sleep(1)
+    dev.run_at_velocity(utils.rpm2rad_per_sec(20))
+    sleep(0.01)
