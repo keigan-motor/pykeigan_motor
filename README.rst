@@ -27,6 +27,8 @@ Requirements
 - pyserial >= 3.4
 - bluepy >= 1.1.4 (BLE support. Linux only)
 
+***NOTE) We recommend to update your KeiganMotor firmware to the latest as python script can cause error if it use new API commands.
+
 Installation
 -------------------------------
 

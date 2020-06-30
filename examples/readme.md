@@ -71,6 +71,12 @@ Bluetoothでモーターが検出されない場合は、モーターの"イン�
     
         $python3 usb-actuator.py
     
++ usb-button_trigger.py
+
+    KeiganMotor 本体のボタンイベント取得
+    
+        $python3 usb-button_trigger.py
+
 + usb-get-motor-Informations.py
 
     モーターの回転情報の取得
