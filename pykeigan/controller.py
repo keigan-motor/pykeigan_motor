@@ -615,6 +615,22 @@ class Controller:
             values=float2bytes(distance)
         self._run_command(command+identifier+values+crc16,'motor_tx')
 
+    def disable_action_task(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Disable motor action.
+        This function can be stored in taskset, while disable_action() cannot be stored.
+        """       
+        command=b'\x6A'
+        self._run_command(command+identifier+crc16,'motor_tx') 
+
+    def enable_action_task(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Enable motor action.
+        This function can be stored in taskset, while enable_action() cannot be stored.
+        """       
+        command=b'\x6B'
+        self._run_command(command+identifier+crc16,'motor_tx') 
+
     def free_motor(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
         Stop the motor's excitation
