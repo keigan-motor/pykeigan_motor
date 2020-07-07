@@ -122,6 +122,7 @@ class Controller:
                 0x92:"wait_queue",
                 0x94:"erase_task",
                 0x95:"clear_queue",
+                0x96:"wait_queue_until_input",
                 0x9A:"read_status",
                 0xA0:"start_recording_taskset",
                 0xA2:"stop_recording_taskset",
@@ -381,7 +382,7 @@ class Controller:
         -----------
         - bit7: Physical 3 buttons
         - bit6: UART2
-        - bit5: -
+        - bit5: Digital In
         - bit4: I2C(Wired)
         - bit3: UART1(USB, Wired)
         - bit2: -
@@ -653,33 +654,6 @@ class Controller:
         values=float2bytes(torque)
         self._run_command(command+identifier+values+crc16,'motor_tx')
 
-    # def move_to_pos_until_arrival(self,position,speed=None,identifier=b'\x00\x00',crc16=b'\x00\x00'):
-    #     """
-    #     todo::1.86 farmBug
-    #     Move to the absolute 'position' at the 'speed'. If the speed is None, move at the speed set by 0x58: set_speed. This command is active until arriving the position. The next command execution waits in a queue.
-    #     """
-    #     if speed is not None:
-    #         command=b'\x75'
-    #         values=float2bytes(position)+float2bytes(speed)
-    #     else:
-    #         command=b'\x76'
-    #         values=float2bytes(position)
-    #     self._run_command(command+identifier+values+crc16,'motor_tx')
-
-    # def move_by_dist_until_arrival(self,position,speed=None,identifier=b'\x00\x00',crc16=b'\x00\x00'):
-    #     """
-    #     todo::1.86 farmBug
-    #     Move the motor by the specified relative 'distance' from the current position at the 'speed'. If the speed is None, move at the speed set by 0x58: set_speed. This command is active until arriving the position. The next command execution waits in a queue.
-    #     """
-    #     if speed is not None:
-    #         command = b'\x77'
-    #         values = float2bytes(position) + float2bytes(speed)
-    #     else:
-    #         command = b'\x78'
-    #         values = float2bytes(position)
-    #
-    #     self._run_command(command+identifier+values+crc16,'motor_tx')
-
     def start_doing_taskset(self,index,repeating,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
         Do taskset at the specified 'index' 'repeating' times.
@@ -754,6 +728,17 @@ class Controller:
         """
         command=b'\x95'
         self._run_command(command+identifier+crc16,'motor_tx')
+
+
+    def wait_queue_until_input(self, pin, event, timeout=0, sub_pin1=0xFF, sub_state1=0, sub_pin2=0xFF, sub_state2=0, sub_pin3=0xFF, sub_state3=0, identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Wait the queue or pause the queue for the specified GPIO digital pin event.
+        It is resumd automatically if timeout[ms] passed.
+        """
+        command=b'\x96'
+        values=uint8_t2bytes(pin)+uint8_t2bytes(event)+uint32_t2bytes(timeout)+uint8_t2bytes(sub_pin1)+uint8_t2bytes(sub_state1)+uint8_t2bytes(sub_pin2)+uint8_t2bytes(sub_state2)+uint8_t2bytes(sub_pin3)+uint8_t2bytes(sub_state3)
+        self._run_command(command+identifier+values+crc16,'motor_tx')        
+
 
     # Taskset
     def start_recording_taskset(self,index,identifier=b'\x00\x00',crc16=b'\x00\x00'):
