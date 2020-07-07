@@ -773,6 +773,15 @@ class Controller:
         command=b'\xA4'
         self._run_command(command+identifier+crc16,'motor_tx')
 
+    def set_trigger_taskset_settings(self,index,repeating,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set taskset settings by trigger such as button
+        """
+        command=b'\xA8'
+        values=uint16_t2bytes(index)+uint32_t2bytes(repeating)
+        self._run_command(command+identifier+values+crc16,'motor_tx')
+
+
     # Teaching
     def start_teaching_motion(self,index,time_ms,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
@@ -822,6 +831,14 @@ class Controller:
         """
         command=b'\xAE'
         self._run_command(command+identifier+crc16,'motor_tx')
+
+    def set_trigger_motion_settings(self,index,repeating,option,autoStart,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set playback motion settings by trigger such as button
+        """
+        command=b'\xB2'
+        values=uint16_t2bytes(index)+uint32_t2bytes(repeating)+uint8_t2bytes(option)+uint8_t2bytes(autoStart)
+        self._run_command(command+identifier+values+crc16,'motor_tx')
 
     def read_motion(self,index,read_comp_cb,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
