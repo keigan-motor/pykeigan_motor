@@ -54,10 +54,11 @@ class USBController(base.Controller):
     def recover(self):
         self.start_auto_serial_reading()
 
-    def disconnect(self):
+    def disconnect(self, reconnect=False):
         """
         Close the USB port.
         """
+        self.shouldReconnect = reconnect
         self.my_cleanup()
         time.sleep(0.5)
         self.serial.close()
