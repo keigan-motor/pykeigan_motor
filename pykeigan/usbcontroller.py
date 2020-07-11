@@ -28,7 +28,7 @@ class USBController(base.Controller):
         self.try_reconnect = False
         self.reconn_err_cnt = 0
         self.total_reconnect_cnt = 0
-        self.serial = serial.Serial(port, baud, 8, 'N', 1, None, False, True)
+        self.serial = serial.Serial(port, baud, 8, 'N', 1, None, False, True, write_timeout=0.1)
         self.on_motor_measurement_value_cb = False
         self.on_motor_imu_measurement_cb = False
         self.on_motor_connection_error_cb = False
