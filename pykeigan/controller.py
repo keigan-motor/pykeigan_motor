@@ -104,6 +104,8 @@ class Controller:
                 0x66:"move_to_pos",
                 0x67:"move_by_dist",
                 0x68:"move_by_dist",
+                0x6A:"enable_action_task",
+                0x6B:"disable_action_task",
                 0x6C:"free_motor",
                 0x6D:"stop_motor",
                 0x72:"hold_torque",
@@ -144,6 +146,7 @@ class Controller:
                 0xB2:"set_trigger_motion_settings",
                 0xB7:"read_motion",
                 0xB8:"write_motion_position",
+                0xBC:"set_autostart_setting",
                 0xBD:"set_button_setting",
                 0xBE:"read_error",
                 0xC0:"set_i2c_address",
@@ -185,6 +188,7 @@ class Controller:
         {
             CURVE_TYPE_NONE = 0, // Turn off Motion control
             CURVE_TYPE_TRAPEZOID = 1, // Turn on Motion control with trapezoidal curve
+            CURVE_TYPE_DIRECT_POS = 10 // Turn off Motion control (Direct position control)
         }
         """
         command=b'\x05'
@@ -459,13 +463,27 @@ class Controller:
         values=uint8_t2bytes(flag)
         self._run_command(command+identifier+values+crc16,'motor_rx')
 
+    def set_autostart_setting(self, mode, identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Set the button setting  (Motor Firmware Ver. requires >= 2.42)
+        -----------
+        mode = 0:  Without auto start 
+        mode = 1:  Auto start doing taskset (config by set_taskset_trigger_settings)
+        mode = 2:  Auto start playback motion (config by set_motion_trigger_settings)
+        -----------
+        """
+        command=b'\xBC'
+        values=uint8_t2bytes(mode)
+        self._run_command(command+identifier+values+crc16,'motor_rx')
+
+
     def set_button_setting(self, mode, identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
-        Set the button setting  (MotorFarmVar >2.28)
+        Set the button setting  (MotorFirmVer. >= 2.28)
         -----------
-        mode = 0:  Manual mode with Motion 
-        mode = 1:  Manual mode with Taskset
-        mode = 30: Parent mode (Receive button action)
+        mode = 0:  Manual button mode with Motion 
+        mode = 1:  Manual button mode with Taskset
+        mode = 30: Child button mode (Receive button action event from KeiganMotor)
         -----------
         """
         command=b'\xBD'
@@ -618,7 +636,7 @@ class Controller:
 
     def disable_action_task(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
-        Disable motor action.
+        Disable motor action. (Firmware ver. requires >= 2.42)
         This function can be stored in taskset, while disable_action() cannot be stored.
         """       
         command=b'\x6A'
@@ -626,7 +644,7 @@ class Controller:
 
     def enable_action_task(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
-        Enable motor action.
+        Enable motor action. (Firmware ver. requires >= 2.42)
         This function can be stored in taskset, while enable_action() cannot be stored.
         """       
         command=b'\x6B'
