@@ -27,7 +27,7 @@ Requirements
 - pyserial >= 3.4
 - bluepy >= 1.1.4 (BLE support. Linux only)
 
-***NOTE) We recommend to update your KeiganMotor firmware to the latest as python script can cause error if it use new API commands.
+**NOTE) We recommend to update your KeiganMotor firmware to the latest as python script can cause error if it use new API commands.**
 
 Installation
 -------------------------------
@@ -43,9 +43,11 @@ Install from source::
 
 Install from PyPI::
 
-    pip install pykeigan-motor
+    pip3 install pykeigan-motor
     # or to install BLE Support
-    pip install pykeigan-motor[ble]
+    pip3 install pykeigan-motor[ble]
+
+- NOTE) Use pip instead of pip3 in case of Python2.x or Windows OS.
 
 USB Serial
 -----------------
@@ -125,6 +127,14 @@ KM1Scan.py
 
 Release Notes
 ------------------
+Release 2.2.5
+
+- Respond to KeiganMotor firmware ver >= 2.40
+- Bug fixes
+- Added serial reconnection feature(USB)
+- Added some new APIs
+- Added some examples
+
 Release 2.1.0
 
 - Added python 2 support
