@@ -9,14 +9,14 @@ with codecs.open(path.join(this_directory, 'README.rst'),'r','utf-8') as f:
 
 setup(
     name='pykeigan_motor',
-    version='2.2.2',
+    version='2.2.5',
     description='Python Library for Keigan Motors (v2)',
     long_description=readme,
     long_description_content_type='text/x-rst',
     install_requires=['pyserial'],
     extras_require={'ble' : ['bluepy']},
-    author='Tomohiro Takata, Hiroshi Harada',
-    author_email='takata@innovotion.co.jp, harada@keigan.co.jp',
+    author='Tomohiro Takata, Hiroshi Harada, Takashi Tokuda',
+    author_email='takata@innovotion.co.jp, harada@keigan.co.jp, tokuda@keigan.co.jp',
     url='https://github.com/keigan-motor/pykeigan_motor',
     license='MIT-LICENSE',
     packages=find_packages(exclude=('tests', 'docs'))

@@ -531,6 +531,7 @@ class Controller:
         """
         command=b'\x41'
         self._run_command(command+identifier+crc16,'motor_rx')
+        time.sleep(3) # wait for next command to store registers in flash
 
     def reset_register(self,register,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
@@ -748,10 +749,15 @@ class Controller:
         self._run_command(command+identifier+crc16,'motor_tx')
 
 
-    def wait_queue_until_input(self, pin, event, timeout=0, sub_pin1=0xFF, sub_state1=0, sub_pin2=0xFF, sub_state2=0, sub_pin3=0xFF, sub_state3=0, identifier=b'\x00\x00',crc16=b'\x00\x00'):
+    def wait_queue_until_input(self, pin, event=2, timeout=0, sub_pin1=0xFF, sub_state1=0, sub_pin2=0xFF, sub_state2=0, sub_pin3=0xFF, sub_state3=0, identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
         Wait the queue or pause the queue for the specified GPIO digital pin event.
         It is resumd automatically if timeout[ms] passed.
+        event parameter is as follows.
+        -----------
+        1: RISING (Low to High) 
+        2: FALLING (High to Low)
+        -----------
         """
         command=b'\x96'
         values=uint8_t2bytes(pin)+uint8_t2bytes(event)+uint32_t2bytes(timeout)+uint8_t2bytes(sub_pin1)+uint8_t2bytes(sub_state1)+uint8_t2bytes(sub_pin2)+uint8_t2bytes(sub_state2)+uint8_t2bytes(sub_pin3)+uint8_t2bytes(sub_state3)
