@@ -7,11 +7,11 @@ You can control your Keigan Motor through USB Serial and BLE.
 
 https://www.keigan-motor.com/
 
-**This library has been updated from v1 to v2.**
+**This library has been updated from v1 to more than v2.**
 
 **The method names are not comatible, but we added many important features.**
 
-**We strongrly recommend this v2 from now on.**
+**We strongly recommend more than v2 from now on.**
 
 **Just in case you can get v1 from: https://github.com/keigan-motor/pykeigan_motor/tree/v1**
 
