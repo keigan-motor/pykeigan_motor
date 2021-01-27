@@ -157,7 +157,7 @@ class Controller:
                 0xEA:"enable_imu_measurement",
                 0xEB:"disable_imu_measurement",
                 0xF0:"reboot",
-                0xF3:"enableCheckSum"
+                0xF3:"enable_check_sum"
                 }
     
     @property
@@ -607,7 +607,8 @@ class Controller:
         """
         command=b'\x62'
         values=float2bytes(velocity)
-        self._run_command(command+identifier+values+crc16,'motor_tx')
+        crc = enable_check_sum(command+identifier+values)
+        self._run_command(command+identifier+values+crc,'motor_tx')
 
     def move_to_pos(self,position,speed=None,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
