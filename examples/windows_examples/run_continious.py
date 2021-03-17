@@ -70,11 +70,11 @@ dev.on_motor_measurement_value_cb = on_motor_measurement_cb
 dev.enable_action()
 dev.set_curve_type(0)
 dev.set_speed_p(10)
-dev.set_safe_run_settings(True, 100, 1) # 第1引数が True の場合、5000[ms]以内に次の動作命令が来ないと、停止する 0:free,1:disable,2:stop, 3:position固定
-dev.run_at_velocity(utils.rpm2rad_per_sec(20))
+dev.set_safe_run_settings(True, 100, 13) # 第1引数が True の場合、5000[ms]以内に次の動作命令が来ないと、停止する 0:free,1:disable,2:stop, 3:position固定
+dev.run_at_velocity(utils.rpm2rad_per_sec(200))
 """
 Exit with key input
 """
 while True:
-    dev.run_at_velocity(utils.rpm2rad_per_sec(20))
+    dev.run_at_velocity(utils.rpm2rad_per_sec(200))
     sleep(0.01)

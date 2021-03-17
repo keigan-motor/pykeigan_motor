@@ -1,0 +1,205 @@
+import msvcrt
+from time import sleep
+
+current_dir = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(current_dir) + '/../../') # give 1st priority to the directory where pykeigan exists
+
+from pykeigan import usbcontroller
+from pykeigan import utils
+
+# Select port connecting to KeiganMotor
+port = 'COM55'
+dev = usbcontroller.USBController(port, reconnect=False)
+
+rps_list = [-19,
+-19	,
+-59	,
+-59	,
+-59	,
+-48	,
+-48	,
+-49	,
+-49	,
+-49	,
+-48	,
+-48	,
+-45	,
+-45	,
+-45	,
+-45	,
+-45	,
+11	,
+11	,
+11	,
+-11	,
+-11	,
+-12	,
+-12	,
+-12	,
+-4	,
+-4	,
+-20	,
+-20	,
+-20	,
+-27	,
+-27	,
+-16	,
+-16	,
+-16	,
+-19	,
+-19	,
+-32	,
+-32	,
+-32	,
+-21	,
+-21	,
+-25	,
+-25	,
+-25	,
+-23	,
+-23	,
+-21	,
+-21	,
+-21	,
+-19	,
+-19	,
+-23	,
+-23	,
+-23	,
+-20	,
+-20	,
+-16	,
+-16	,
+-16	,
+-20	,
+-20	,
+-20	,
+-17	,
+-17	,
+-19	,
+-19	,
+-30	,
+-30	,
+-30	,
+-20	,
+-20	,
+-22	,
+-22	,
+-22	,
+-27	,
+-27	,
+-15	,
+-15	,
+-15	,
+-22	,
+-22	,
+-26	,
+-26	,
+-26	,
+-16	,
+-16	,
+-25	,
+-25	,
+-25	,
+-25	,
+-25	,
+-24	,
+-24	,
+-24	,
+-29	,
+-29	,
+-27	,
+-27	,
+-27	,
+-15	,
+-15	,
+-27	,
+-27	,
+-27	,
+-36	,
+-36	,
+-9	,
+-9	,
+-9	,
+-18	,
+-18	,
+-20	,
+-20	,
+-20	,
+-15	,
+-15	,
+-15	,
+-15	,
+-15	,
+-21	,
+-21	,
+-12	,
+-12	,
+-12	,
+-14	,
+-14	,
+-15	,
+-15	,
+-15	,
+-15	,
+-15	,
+-14	,
+-14	,
+-14	,
+-26	,
+-26	,
+-29	,
+-29	,
+-29	,
+-12	,
+-12	,
+-18	,
+-18	,
+-18	,
+-30	,
+-30	,
+-19	,
+-19	,
+-19	,
+-24	,
+-24	,
+-39	,
+-39	,
+-39	,
+-22	,
+-22	,
+-21	,
+-21	,
+-21	,
+-27	,
+-27	,
+-19	,
+-19	,
+-19	,
+]
+
+
+if __name__ == '__main__':
+    try:
+        while True:
+            sleep(0.01)
+            if msvcrt.kbhit():
+                c = msvcrt.getwch()
+                print(c)
+
+                if c == 'r':
+                    # rpm -> radian/sec
+                    dev.enable_action()
+                    for rps in rps_list:
+                        dev.run_at_velocity(rps)
+                        sleep(0.1)
+                    print('end')
+
+
+                elif c == 's':
+                    dev.stop_motor()
+
+    except KeyboardInterrupt:
+        if dev:
+            dev.disable_action()
+        print('Ctrl-C')
