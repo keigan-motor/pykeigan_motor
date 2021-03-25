@@ -64,6 +64,9 @@ dev.on_motor_connection_error_cb=on_motor_connection_error_cb
 
 dev.enable_continual_imu_measurement()#IMUはデフォルトでOFFの為、取得する場合Onにする
 
+# ビットフラグ 0x40 でモーターの時刻送信を有効化 ※ モーターFW ver 2.62以降対応
+dev.set_motor_measurement_settings(5) 
+
 #モーター動作
 dev.set_led(2,255,255,0)
 sleep(3)

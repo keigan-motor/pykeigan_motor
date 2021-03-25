@@ -2,50 +2,27 @@
 """
 Created on Thr Jan 10 09:13:24 2018
 
-@author: Takashi Tokuda
-Keigan Inc.
+@author: takata@innovotion.co.jp
+@author: harada@keigan.co.jp
 """
-
 import argparse
+import signal
 import sys
+import os
 import pathlib
-import msvcrt
-import serial.tools.list_ports
 from time import sleep
+from concurrent.futures import ThreadPoolExecutor
 
 current_dir = pathlib.Path(__file__).resolve().parent
-sys.path.insert(0, str(current_dir) + '/../../') # give 1st priority to the directory where pykeigan exists
+sys.path.insert(0, str(current_dir) + '/../') # give 1st priority to the directory where pykeigan exists
 
 from pykeigan import usbcontroller
 
+parser = argparse.ArgumentParser(description='モーターに接続し、各種情報の取得')
+parser.add_argument('port',metavar='PORT',default='/dev/ttyUSB0',nargs='?',help='モーターのデバイスファイル指定 (default:/dev/ttyUSB0)')
+args = parser.parse_args()
 
-def select_port():
-    print('Available COM ports list')
-
-    portlist = serial.tools.list_ports.comports()
-
-    if not portlist:
-        print('No available port')
-        sys.exit()
-
-    print('i : name')
-    print('--------')
-    for i, port in enumerate(portlist):
-        print(i, ':', port.device)
-
-    print('- Enter the port number (0~)')
-    portnum = input()
-    portnum = int(portnum)
-
-    portdev = None
-    if portnum in range(len(portlist)):
-        portdev = portlist[portnum].device
-
-    print('Conncted to', portdev)
-
-    return portdev
-
-
+os.system('clear')
 for i in range(24):
     print("　　　　　　　")
 
@@ -79,16 +56,13 @@ def on_motor_connection_error_cb(e):
 
 #接続
 #dev=usbcontroller.USBController('/dev/ttyUSB0',False)#モーターのアドレス 参照 usb-simple-connection.py
-dev=usbcontroller.USBController(select_port()) #モーターのアドレス 参照 usb-simple-connection.py
+dev=usbcontroller.USBController(args.port,False)#モーターのアドレス 参照 usb-simple-connection.py
 dev.on_motor_measurement_value_cb=on_motor_measurement_cb
 dev.on_motor_imu_measurement_cb=on_motor_imu_measurement_cb
 dev.on_motor_log_cb=on_motor_log_cb
 dev.on_motor_connection_error_cb=on_motor_connection_error_cb
 
 dev.enable_continual_imu_measurement()#IMUはデフォルトでOFFの為、取得する場合Onにする
-
-# ビットフラグ 0x40 でモーターの時刻送信を有効化 ※ モーターFW ver 2.62以降対応
-dev.set_motor_measurement_settings(5) 
 
 #モーター動作
 dev.set_led(2,255,255,0)

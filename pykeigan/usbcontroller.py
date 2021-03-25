@@ -230,6 +230,16 @@ class USBController(base.Controller):
             if (callable(self.on_motor_measurement_value_cb)):
                 self.on_motor_measurement_value_cb(self.__motor_measurement_value)
             return True
+        elif datatype == 0xBA:  # モーター時刻+回転情報受信 モーターFW ver 2.62
+            motor_time = bytes2uint32_t(payload[0:4])
+            position = bytes2float(payload[4:8])
+            velocity = bytes2float(payload[8:12])
+            torque = bytes2float(payload[12:16])
+            self.__motor_measurement_value = {'position': position, 'velocity': velocity, 'torque': torque,
+                                              'received_unix_time': time.time(), 'motor_time': motor_time}
+            if (callable(self.on_motor_measurement_value_cb)):
+                self.on_motor_measurement_value_cb(self.__motor_measurement_value)
+            return True
         elif datatype == 0xB5:  # IMU情報受信
             accel_x = bytes2int16_t(payload[0:2]) * 2.0 / 32767
             accel_y = bytes2int16_t(payload[2:4]) * 2.0 / 32767
