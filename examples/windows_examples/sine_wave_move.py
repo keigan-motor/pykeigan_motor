@@ -102,7 +102,7 @@ dev.enable_action()
 #dev.set_pos_control_threshold(utils.deg2rad(2))
 #dev.set_position_p(10)
 #dev.set_position_i(2)
-#dev.set_speed(utils.rpm2rad_per_sec(20))
+dev.set_speed(utils.rpm2rad_per_sec(100))
 # 連続で動作命令を送る場合、位置到達時の通知設定をOFFとする必要がある
 # dev.set_notify_pos_arrival_settings(False, 0.00872665, 200) # 第1引数 False で無効化
 dev.set_safe_run_settings(True, 100, 3) # 第1引数が True の場合、5000[ms]以内に次の動作命令が来ないと、停止する 0:free,1:disable,2:stop, 3:position固定

@@ -109,10 +109,10 @@ class Controller:
                 0x6C:"free_motor",
                 0x6D:"stop_motor",
                 0x72:"hold_torque",
-                0x75:"move_to_pos_until_arrival",
-                0x76:"move_to_pos_until_arrival",
-                0x77:"move_by_pos_until_arrival",
-                0x78:"move_by_pos_until_arrival",
+                0x75:"move_to_pos_wait",
+                0x76:"move_to_pos_wait",
+                0x77:"move_by_dist_wait",
+                0x78:"move_by_dist_wait",
                 0x81:"start_doing_taskset",
                 0x82:"stop_doing_taskset",
                 0x85:"start_playback_motion",
@@ -632,6 +632,38 @@ class Controller:
             values=float2bytes(distance)+float2bytes(speed)
         else:
             command=b'\x68'
+            values=float2bytes(distance)
+        self._run_command(command+identifier+values+crc16,'motor_tx')
+
+    def move_to_pos_wait(self,position,speed=None,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Move the motor to the specified absolute 'position' at the 'speed'.
+        It pauses the queue to handle commands in motor side at the same time.
+        "Queue" will resume automatically if it arrives at the target position.
+        See "set_notify_pos_arrival_settings" to change parameters such as the tolerance.
+        If the speed is None, move at the speed set by 0x58: set_speed.
+        """
+        if speed is not None:
+            command=b'\x75'
+            values=float2bytes(position)+float2bytes(speed)
+        else:
+            command=b'\x76'
+            values=float2bytes(position)
+        self._run_command(command+identifier+values+crc16,'motor_tx')
+
+    def move_by_dist_wait(self,distance,speed=None,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        """
+        Move the motor by the specified relative 'distance' from the current position at the 'speed'.
+        It pauses the queue to handle commands in motor side at the same time.
+        The queue will be resumed automatically if it arrives at the target position.
+        See "set_notify_pos_arrival_settings" to change parameters such as the tolerance.
+        If the speed is None, move at the speed set by 0x58: set_speed.
+        """
+        if speed is not None:
+            command=b'\x77'
+            values=float2bytes(distance)+float2bytes(speed)
+        else:
+            command=b'\x78'
             values=float2bytes(distance)
         self._run_command(command+identifier+values+crc16,'motor_tx')
 
