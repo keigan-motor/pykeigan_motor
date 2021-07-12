@@ -36,6 +36,7 @@ class USBController(base.Controller):
         self.on_read_motion_read_comp_cb = False
         self.on_motor_log_cb = False
         self.on_motor_event_cb = False
+        self.is_check_sum_enabled = False
         self.set_interface(self.interface_type['USB'] + self.interface_type['BTN'])
         self.start_auto_serial_reading()
 
