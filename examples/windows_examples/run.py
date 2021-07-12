@@ -1,5 +1,8 @@
 import msvcrt
 from time import sleep
+import argparse
+import sys
+import pathlib
 
 current_dir = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(current_dir) + '/../../') # give 1st priority to the directory where pykeigan exists

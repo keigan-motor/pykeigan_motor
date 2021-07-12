@@ -2,6 +2,7 @@ import msvcrt
 import serial
 import serial.tools.list_ports
 import sys
+import pathlib
 from time import sleep
 
 current_dir = pathlib.Path(__file__).resolve().parent
@@ -51,8 +52,8 @@ if __name__ == '__main__':
 
                 if c == 'r':
                     # rpm -> radian/sec
-                    dev.enable_action()
-                    dev.set_speed(utils.rpm2rad_per_sec(5))
+                    dev.enable_actuion()
+                    dev.set_speed(utils.rpm2rad_per_sec(50))
                     dev.set_led(1, 0, 200, 0)
                     dev.run_forward()
                 elif c == 's':
