@@ -976,6 +976,10 @@ class Controller:
         command=b'\xF0'
         self._run_command(command+identifier+crc16,'motor_tx')
 
+    def enable_check_sum(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
+        command=b'\xF3'
+        self._run_command(command+identifier,'motor_tx')
+
     def enter_device_firmware_update(self,identifier=b'\x00\x00',crc16=b'\x00\x00'):
         """
         Enter the device firmware update mode or bootloader mode. It goes with reboot.
