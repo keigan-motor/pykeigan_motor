@@ -63,8 +63,8 @@ def rpm2rad_per_sec(rpm):
 def rad_per_sec2rpm(radian_per_sec):
     return radian_per_sec/0.10471975511965977
 
-def enable_check_sum(array_buffer):
-    CRC_TABLE = [ \
+def calc_check_sum(array_buffer):
+    calc_check_sum.CRC_TABLE = [ \
         0 , 0x1189 , 0x2312 , 0x329b , 0x4624 , 0x57ad , 0x6536 , 0x74bf , \
         0x8c48 , 0x9dc1 , 0xaf5a , 0xbed3 , 0xca6c , 0xdbe5 , 0xe97e , 0xf8f7 , \
         0x1081 , 0x0108 , 0x3393 , 0x221a , 0x56a5 , 0x472c , 0x75b7 , 0x643e , \
@@ -104,6 +104,6 @@ def enable_check_sum(array_buffer):
 
     crc = 0
     for c in array_buffer:
-        crc = (crc >> 8) ^ CRC_TABLE[(crc ^ c) & 0xFF]
+        crc = (crc >> 8) ^ calc_check_sum.CRC_TABLE[(crc ^ c) & 0xFF]
     
     return uint16_t2bytes(crc)
