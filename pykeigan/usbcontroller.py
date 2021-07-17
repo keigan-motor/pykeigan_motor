@@ -118,7 +118,8 @@ class USBController(base.Controller):
 
     def _run_command(self, val, characteristics=None):
         try:
-            self.serial.write(val)
+            crc = calc_check_sum(val)
+            self.serial.write(val+crc)
         except serial.SerialException as e:
             self.serial.close()
             self.reconnect()
