@@ -118,7 +118,8 @@ class USBController(base.Controller):
 
     def _run_command(self, val, characteristics=None):
         try:
-            self.serial.write(val)
+            crc = calc_check_sum(val)
+            self.serial.write(val+crc)
         except serial.SerialException as e:
             self.serial.close()
             self.reconnect()
@@ -206,13 +207,17 @@ class USBController(base.Controller):
                 for ie in range(i + 4, bf_len-3):
                     # ポストアンブル検出
                     if self.serial_buf[ie + 2:ie+4] == b'\x0d\x0a':
-                        # crc = self.serial_buf[ie] << 8 | self.serial_buf[ie + 1]  # CRC
+                        rx_crc = self.serial_buf[ie] << 8 | self.serial_buf[ie + 1]  # CRC
                         payload = self.serial_buf[i + 4: ie]  # 情報バイト
-                        success = self.__serialdataParse(payload)
-                        slice_idx = ie + 4
-                        i = ie + 3
-                        is_pre = False
-                        break
+                        crc = calc_check_sum(payload)
+                        # print(uint16_t2bytes(rx_crc))
+                        # print(crc)
+                        if(uint16_t2bytes(rx_crc) == crc):
+                            success = self.__serialdataParse(payload)
+                            slice_idx = ie + 4
+                            i = ie + 3
+                            is_pre = False
+                            break
             i += 1
         self.serial_buf = self.serial_buf[slice_idx:]
 
