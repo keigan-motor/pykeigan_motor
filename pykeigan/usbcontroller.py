@@ -267,7 +267,7 @@ class USBController(base.Controller):
                 return True
             elif comm == 0x3A:
                 self.setting_values[comm] = (bytes2uint8_t(payload[3:4]), bytes2uint8_t(payload[4:5]), bytes2uint8_t(payload[5:6])), time.time()
-                return True
+                return True                             
             elif comm == 0x46:
                 self.setting_values[comm] = payload[3:16].decode('utf-8'), time.time()
                 return True
@@ -287,7 +287,21 @@ class USBController(base.Controller):
             else:
                 return False
         elif datatype == 0xBE:  # command log (Error or Success information)
-            self.__motor_log_value={'command_names':self.command_names[bytes2uint8_t(payload[2:3])],'error_codes':self.error_codes[bytes2uint32_t(payload[3:7])]}
+            #print(payload)
+            cmd = bytes2uint8_t(payload[2:3])
+            err_code = bytes2uint32_t(payload[3:7])
+            try:
+                cmd_name = self.command_names[cmd]
+            except KeyError:
+                print('[Error info] No such command exists. cmd = ', hex(cmd))
+                return True
+            try:
+                err_desc = self.error_codes[err_code]
+                # print(err_code)
+            except KeyError:
+                print('[Error info] No such error_code exists. error_code = ', err_code)
+                return True
+            self.__motor_log_value={'command_names':cmd,'error_codes':err_code}
             if (callable(self.on_motor_log_cb)):
                 self.on_motor_log_cb(self.__motor_log_value)
             if self.DebugMode:
