@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
                 if c == 'r':
                     # rpm -> radian/sec
-                    dev.enable_actuion()
+                    dev.enable_action()
                     dev.set_speed(utils.rpm2rad_per_sec(50))
                     dev.set_led(1, 0, 200, 0)
                     dev.run_forward()

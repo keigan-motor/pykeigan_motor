@@ -84,5 +84,5 @@ port = select_port()
 baud_rate = baud_rates[baud_rate_setting()]
 dev=usbcontroller.USBController(port,baud=baud_rate)
 dev.enable_action() #5: 1Mbps
-dev.run_at_velocity(utils.rpm2rad_per_sec(10))
+dev.run_at_velocity(utils.rpm2rad_per_sec(100))
 
