@@ -87,7 +87,7 @@ dev.on_motor_connection_error_cb=on_motor_connection_error_cb
 
 dev.enable_continual_imu_measurement()#IMUはデフォルトでOFFの為、取得する場合Onにする
 
-# ビットフラグ 0x40 でモーターの時刻送信を有効化 ※ モーターFW ver 2.62以降対応
+# ビットフラグ 0x40 でモーターの時刻送信を有効化 ※ モーターFW ver 2.62以降対応、ver2.61以下は無効
 dev.set_motor_measurement_settings(5) 
 
 #モーター動作
@@ -105,12 +105,21 @@ Exit with key input
 """
 
 sleep(0.5)
-while True:
-    print("\033[20;2H", end="",flush=True)
-    print("---------------------------------------")
-    inp = input('Exit:[key input] >>')
-    if inp !=None:
-        dev.set_led(1, 100, 100, 100)
+
+try:
+    while True:
+        print("\033[20;2H", end="",flush=True)
+        print("---------------------------------------")
+        inp = input('Exit:[key input] >>')
+        if inp !=None:
+            dev.set_led(1, 100, 100, 100)
+            dev.disable_action()
+            dev.disconnect()
+            break
+
+
+except KeyboardInterrupt:
+    if dev:
         dev.disable_action()
         dev.disconnect()
-        break
+    print('Ctrl-C')

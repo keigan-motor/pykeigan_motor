@@ -27,6 +27,17 @@ def uint16_t2bytes(uint16_value):
     val2=uint16_value-val1*256
     return struct.pack("BB",val1,val2)
 
+
+def uint16_t2bytes_little(uint16_value):
+    uint16_value=int(uint16_value)
+    if uint16_value<0:
+        raise TypeError("Argument should be positive or equal to zero")
+    if uint16_value>256**2-1:
+        raise TypeError("Argument should be less than 256**2")
+    val1=int(uint16_value/256)
+    val2=uint16_value-val1*256
+    return struct.pack("<BB",val2,val1)
+
 def uint32_t2bytes(uint32_value):
     uint32_value=int(uint32_value)
     if uint32_value<0:
@@ -51,6 +62,9 @@ def bytes2uint8_t(ba):
 def bytes2int16_t(ba):
     return struct.unpack(">h",ba)[0]
 
+def bytes2int16_t_little(ba):
+    return struct.unpack("<h",ba)[0]
+
 def deg2rad(degree):
     return degree*0.017453292519943295
 
@@ -63,8 +77,9 @@ def rpm2rad_per_sec(rpm):
 def rad_per_sec2rpm(radian_per_sec):
     return radian_per_sec/0.10471975511965977
 
-def calc_check_sum(array_buffer):
-    calc_check_sum.CRC_TABLE = [ \
+
+def calc_crc16(buf):
+    calc_crc16_bytes.CRC_TABLE = [ \
         0 , 0x1189 , 0x2312 , 0x329b , 0x4624 , 0x57ad , 0x6536 , 0x74bf , \
         0x8c48 , 0x9dc1 , 0xaf5a , 0xbed3 , 0xca6c , 0xdbe5 , 0xe97e , 0xf8f7 , \
         0x1081 , 0x0108 , 0x3393 , 0x221a , 0x56a5 , 0x472c , 0x75b7 , 0x643e , \
@@ -102,8 +117,15 @@ def calc_check_sum(array_buffer):
         0x7bc7 , 0x6a4e , 0x58d5 , 0x495c , 0x3de3 , 0x2c6a , 0x1ef1 , 0x0f78 \
     ]
 
-    crc = 0
-    for c in array_buffer:
-        crc = (crc >> 8) ^ calc_check_sum.CRC_TABLE[(crc ^ c) & 0xFF]
+    c = 0
+    for val in buf:
+        num = (c ^ val) & 0xFF
+        c = calc_crc16_bytes.CRC_TABLE[num] ^ (c >> 8)
     
-    return uint16_t2bytes(crc)
+    return c
+
+def calc_crc16_bytes(buf):
+    crc16 = calc_crc16(buf)
+    #print(crc16)
+    return uint16_t2bytes_little(crc16)
+

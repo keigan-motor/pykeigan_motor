@@ -58,7 +58,9 @@ if __name__ == '__main__':
                     dev.run_forward()
                 elif c == 's':
                     dev.stop_motor()
-
+                elif c == 'a':
+                    dev.reboot()
+                    
     except KeyboardInterrupt:
         if dev:
             dev.disable_action()

@@ -42,6 +42,7 @@ class USBController(base.Controller):
 
         atexit.register(self.my_cleanup)
 
+
     def connect(self):
         """
         Open the USB port.
@@ -118,8 +119,12 @@ class USBController(base.Controller):
 
     def _run_command(self, val, characteristics=None):
         try:
-            crc = calc_check_sum(val)
-            self.serial.write(val+crc)
+            crc_buf = calc_crc16_bytes(val)
+            tx_buf = val+crc_buf
+            #print(list(tx_buf))
+            #print(calc_crc16(tx_buf))
+            self.serial.write(tx_buf)
+            
         except serial.SerialException as e:
             self.serial.close()
             self.reconnect()
@@ -155,6 +160,7 @@ class USBController(base.Controller):
             #print(self.serial.in_waiting, self.serial.inWaiting())
             rd = self.serial.read(self.serial.inWaiting())
         except serial.SerialException as e:
+            print(e)
             self.serial.close()
             self.reconnect()
             # There is no new data from serial port
@@ -163,12 +169,14 @@ class USBController(base.Controller):
             return e
         except TypeError as e:
             # Disconnect of USB->UART occured
+            print(e)
             self.serial.close()
             self.reconnect()
             if (callable(self.on_motor_connection_error_cb)):
                 self.on_motor_connection_error_cb(e)
             return e
         except IOError as e:
+            print(e)
             self.serial.close()
             self.reconnect()
             if (callable(self.on_motor_connection_error_cb)):
@@ -199,6 +207,7 @@ class USBController(base.Controller):
         success = False
         #print(self.serial_buf.hex())
         i = 0
+
         while i < bf_len-3:
             # プリアンブル検出
             if not is_pre and self.serial_buf[i:i+4] == b'\x00\x00\xaa\xaa':
@@ -207,17 +216,25 @@ class USBController(base.Controller):
                 for ie in range(i + 4, bf_len-3):
                     # ポストアンブル検出
                     if self.serial_buf[ie + 2:ie+4] == b'\x0d\x0a':
-                        rx_crc = self.serial_buf[ie] << 8 | self.serial_buf[ie + 1]  # CRC
                         payload = self.serial_buf[i + 4: ie]  # 情報バイト
-                        crc = calc_check_sum(payload)
-                        # print(uint16_t2bytes(rx_crc))
+                        # CRC検証
+                        buf_to_validate = self.serial_buf[i + 4: ie + 2]
+                        # print(list(buf_to_validate))
+                        crc = calc_crc16(buf_to_validate)
                         # print(crc)
-                        if(uint16_t2bytes(rx_crc) == crc):
+
+                        if self.is_check_sum_enabled:
+                            if calc_crc16(buf_to_validate) == 0:
+                                success = self.__serialdataParse(payload)
+                            # else:
+                                # print('Invalid check sum (CRC16)')
+                        else:
                             success = self.__serialdataParse(payload)
-                            slice_idx = ie + 4
-                            i = ie + 3
-                            is_pre = False
-                            break
+
+                        slice_idx = ie + 4
+                        i = ie + 3
+                        is_pre = False
+                        break
             i += 1
         self.serial_buf = self.serial_buf[slice_idx:]
 
