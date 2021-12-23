@@ -975,9 +975,10 @@ class Controller:
         command=b'\xF0'
         self._run_command(command+identifier,'motor_tx')
 
-    def enable_check_sum(self,identifier=b'\x00\x00'):
+    def enable_check_sum(self,isEnabled,identifier=b'\x00\x00'):
         command=b'\xF3'
-        self._run_command(command+identifier,'motor_tx')
+        values=uint8_t2bytes(isEnabled)
+        self._run_command(command+identifier+values,'motor_tx')
 
     def enter_device_firmware_update(self,identifier=b'\x00\x00'):
         """
