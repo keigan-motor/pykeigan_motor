@@ -62,6 +62,7 @@ def on_motor_measurement_cb(measurement):
     print("\r"+'measurement {} '.format(measurement), end="")
 
 
+
 dev = usbcontroller.USBController(select_port())
 #dev.on_motor_log_cb = on_motor_log_cb
 dev.on_motor_measurement_value_cb = on_motor_measurement_cb
@@ -75,18 +76,21 @@ dev.set_speed(utils.rpm2rad_per_sec(100))
 #   引数2: 到達しているとみなす許容誤差 ±θ [rad]
 #   引数3: 到達している状態が t[ms] 継続したら到達完了とみなす
 # （例）誤差 ± 1.0[deg] で到達判定OK 到着判定が 1ms 継続で、モーターから位置到達通知
-dev.set_notify_pos_arrival_settings(True, utils.deg2rad(1), 1) 
+dev.set_notify_pos_arrival_settings(True, utils.deg2rad(1), 1000) 
 
-dev.set_curve_type(0)
+dev.set_curve_type(1)
 
 # move_to_pos_wait / move_by_dist_wait コマンドはファームウェア ver 2.66以降対応
 
 ## 絶対位置へ移動（到着まで命令を保持）
-dev.move_to_pos_wait(utils.deg2rad(0))
-dev.move_to_pos_wait(utils.deg2rad(90))
-dev.move_to_pos_wait(utils.deg2rad(0))
-dev.move_to_pos_wait(utils.deg2rad(-90))
-dev.move_to_pos_wait(utils.deg2rad(0))
+# dev.move_to_pos_wait(utils.deg2rad(0))
+# dev.move_to_pos_wait(utils.deg2rad(90))
+# dev.move_to_pos_wait(utils.deg2rad(0))
+# dev.move_to_pos_wait(utils.deg2rad(-90))
+# dev.move_to_pos_wait(utils.deg2rad(0))
+
+# for i in range(1):
+#     dev.move_by_dist_wait(utils.deg2rad(30))
 
 ## 相対位置へ移動（到着まで命令を保持）
 # dev.move_by_dist_wait(utils.deg2rad(90))
@@ -96,6 +100,17 @@ dev.move_to_pos_wait(utils.deg2rad(0))
 
 try:
     while True:  
+        if msvcrt.kbhit():
+            c = msvcrt.getwch()
+            print(c)
+            if c == 'r':
+                for i in range(12):
+                    dev.move_by_dist_wait(utils.deg2rad(30), identifier=utils.uint16_t2bytes(i))
+            if c == 't':
+                for i in range(13):
+                    print(i)
+                    dev.move_to_pos_wait(utils.deg2rad(i*30), identifier=utils.uint16_t2bytes(i))
+
         pass  # ここに、Ctrl-C で止めたい処理を書く
 
 except KeyboardInterrupt:
