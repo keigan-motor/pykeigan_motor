@@ -25,8 +25,9 @@ port1='/dev/ttyUSB0'
     その場合、number: は押したボタンの番号（左から1/2/3）
 """
 def on_motor_event_cb(event):
-    print("\033[3;2H\033[2K", end="")
-    print('event {} '.format(event), end="", flush=True)
+    print("\033[3;2H\033[2K")
+    print('event {} '.format(event))
+    sys.stdout.flush()
     if event['event_type'] == 'button':
         print('button!!')
         if event['number'] == 2:

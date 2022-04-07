@@ -44,7 +44,7 @@ maxNum = 500
 # モーター回転情報callback
 def on_motor_measurement_cb(measurement):
     global data, maxNum
-    print("\r"+'measurement {} '.format(measurement), end="")
+    print("\r"+'measurement {} '.format(measurement))
 
     
 

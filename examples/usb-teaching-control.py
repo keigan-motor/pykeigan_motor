@@ -56,7 +56,8 @@ def rec_and_play_teaching(index):
     dev.start_teaching_motion(index,5000) # インデックス,記録時間
     print("")
     for i in range(5):
-        print("\033[1G\033[2K","モーターを動かして下さい。 残り:",5-i," sec", end="", flush=True)
+        print("\033[1G\033[2K","モーターを動かして下さい。 残り:",5-i," sec")
+        sys.stdout.flush()
         sleep(1)
     dev.stop_teaching_motion()
     print("")
@@ -66,7 +67,8 @@ def rec_and_play_teaching(index):
     return True
 
 def play_teaching(index):
-    print("\033[1G\033[2K","ティーチング再生中",end="", flush=True)
+    print("\033[1G\033[2K","ティーチング再生中")
+    sys.stdout.flush()
     dev.set_led(2, 0, 255, 255)
     dev.stop_playback_motion()
     dev.enable_action()
@@ -97,7 +99,7 @@ def write_motion_position_exec(index):
         pos=amp*math.cos(2*math.pi*i/500)
         dev.write_motion_position(pos)
         sleep(0.02)
-        print('\r Write Test motion>>>>{0}  {1}/{2}'.format(pos,i,len), end='')
+        print('\r Write Test motion>>>>{0}  {1}/{2}'.format(pos,i,len))
     pass
     sleep(0.5)
     dev.stop_teaching_motion()
@@ -114,7 +116,10 @@ Exit with key input
 sleep(0.5)
 while True:
     print("---------------------------------------")
-    inp = input('Command input > Rec:[r] Replay:[p]  Write Test motion:[w] Read motion:[m] Exit:[Other key] >>')
+    if sys.version_info<(3,0):
+        inp = raw_input('Command input > Rec:[r] Replay:[p]  Write Test motion:[w] Read motion:[m] Exit:[Other key] >>')
+    else:
+        inp = input('Command input > Rec:[r] Replay:[p]  Write Test motion:[w] Read motion:[m] Exit:[Other key] >>')
     if inp == 'r':
         rec_and_play_teaching(REC_NUMBER)
     elif inp == 'p':
