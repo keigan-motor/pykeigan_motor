@@ -2,6 +2,8 @@
 
 from setuptools import setup, find_packages
 from os import path
+from io import open
+
 import codecs
 this_directory = path.abspath(path.dirname(__file__))
 readme = open(path.join(this_directory, 'README.rst'), encoding='utf-8').read().replace("\r", "")
