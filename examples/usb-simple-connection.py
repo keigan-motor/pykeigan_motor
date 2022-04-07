@@ -43,7 +43,8 @@ Exit with key input
 """
 while True:
     print("---------------------------------------")
-    inp = input('Exit:[key input] >>')
+    if sys.version_info < (3, 0): inp = raw_input('Exit:[key input] >>')
+    else: inp = input('Exit:[key input] >>')
     if inp !=None:
         dev.set_led(1, 100, 100, 100)
         time.sleep(1)

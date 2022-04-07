@@ -74,7 +74,8 @@ class USBController(base.Controller):
 
         while True:
             self.reconn_err_cnt += 1
-            print('Try reconnecting to : ', self.port," (",self.reconn_err_cnt,")")
+            #print('Try reconnecting to : ', self.port," (",self.reconn_err_cnt,")")
+            print('Try reconnecting to : '+str(self.port)+" ("+ str(self.reconn_err_cnt)+ ")")
             try:
                 self.serial.open()
             except Exception as e:
