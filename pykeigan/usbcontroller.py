@@ -40,11 +40,25 @@ class USBController(base.Controller):
         self.auto_serial_reading=False
         self.set_interface(self.interface_type['USB'] + self.interface_type['BTN'])
         atexit.register(self.my_cleanup)
-        self.start_auto_serial_reading()
+        
+        #precheck whether data from motor is avaliable or not
+        #print('-- precheck reading value')
+        try:
+            self.start_auto_serial_reading()
+            self._read_setting_value(0x46)#motor_name
+            self._read_setting_value(0x47)#motor_info
+            
+        except Exception as e:
+            print('Precheck error: '+str(e))
+            print('\tattemp to reinit...')
+            time.sleep(1)
+            print('...Reinit...')
+            #self.disconnect()
+            #self.__init__()       
 
     def is_connected(self):
         return self.serial.isOpen()
-
+    
     def connect(self):
         """
         Open the USB port.
