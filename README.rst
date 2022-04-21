@@ -37,7 +37,7 @@ Requirements
 **We recommend to update your KeiganMotor firmware to the latest as python script can cause error if it use new API commands.**  
   
 
-  *Update 2.3.0*
+  *Update 2.4.0*
 
   - support both python2.7 and 3
 
@@ -141,7 +141,7 @@ KM1Scan.py
 
 Release Notes
 ------------------
-Release 2.3.0
+Release 2.4.0
 
 - Added support both python2 and 3 support
 - Update some examples
