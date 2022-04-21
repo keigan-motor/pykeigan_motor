@@ -28,7 +28,16 @@ class USBController(base.Controller):
         self.shouldReconnect = reconnect
         self.try_reconnect = False
         self.reconn_err_cnt = 0
-        self.serial = serial.Serial(port, baud, 8, 'N', 1, None, False, True, write_timeout=0.1)
+        #try to connect to serial port
+        try:
+            self.serial = serial.Serial(port, baud, 8, 'N', 1, None, False, True, write_timeout=0.1)
+        except Exception as e:
+            print('Error occured while trying to connect to serial port. Please recheck you USB connection.')
+            print('attemping to reinit... ')
+            time.sleep(3)
+            self.reinit()
+            return
+            
         self.on_motor_measurement_value_cb = False
         self.on_motor_imu_measurement_cb = False
         self.on_motor_connection_error_cb = False
@@ -50,12 +59,21 @@ class USBController(base.Controller):
             
         except Exception as e:
             print('Precheck error: '+str(e))
-            print('\tattemp to reinit...')
+            print('\tattemping to reconnect...')
             time.sleep(1)
-            print('...Reinit...')
+            print('...reconnecting...')
             #self.disconnect()
-            #self.__init__()       
-
+            #self.__init__()
+            
+    def reinit(self):
+        try:
+            print('\n...reiniting...\n')
+            self.__init__()
+            return
+        except Exception as e:
+            time.sleep(3)
+            self.reinit()
+    
     def is_connected(self):
         return self.serial.isOpen()
     
