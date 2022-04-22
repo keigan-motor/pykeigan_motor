@@ -110,6 +110,7 @@ class USBController(base.Controller):
             print('Try reconnecting to : '+str(self.port)+" ("+ str(self.reconn_err_cnt)+ ")")
             try:
                 self.serial.open()
+                self.set_interface(self.interface_type['USB'] + self.interface_type['BTN'])
             except Exception as e:
                 # print(e)
                 pass
