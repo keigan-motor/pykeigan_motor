@@ -324,7 +324,7 @@ class USBController(base.Controller):
                 self.setting_values[comm] = payload[3:16].decode('utf-8'), time.time()
                 return True
             elif comm == 0x47:
-                self.setting_values[comm] = payload[3:34].decode('utf-8'), time.time()
+                self.setting_values[comm] = payload[3:40].decode('utf-8'), time.time()
                 return True
             elif comm == 0x9A:
                 bits_list = [int(n) for n in bin(bytes2uint8_t(payload[3:4]))[2:].zfill(8)]
