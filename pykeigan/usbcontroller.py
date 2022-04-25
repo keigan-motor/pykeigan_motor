@@ -54,16 +54,12 @@ class USBController(base.Controller):
         #print('-- precheck reading value')
         try:
             self.start_auto_serial_reading()
-            self._read_setting_value(0x46)#motor_name
-            self._read_setting_value(0x47)#motor_info
+            time.sleep(1)
+            self.precheck()
             
         except Exception as e:
-            print('Precheck error: '+str(e))
-            print('\tattemping to reconnect...')
-            time.sleep(1)
-            print('...reconnecting...')
-            #self.disconnect()
-            #self.__init__()
+            print('Auto serial reading error: '+str(e))
+            return
             
     def reinit(self):
         try:
@@ -73,6 +69,25 @@ class USBController(base.Controller):
         except Exception as e:
             time.sleep(3)
             self.reinit()
+    
+    def precheck(self):
+        try:  
+            print(self._read_setting_value(0x46))#motor_name
+            print(self._read_setting_value(0x47))#motor_info
+            #print(self._read_setting_value(0x9A))#status
+            
+        except ValueError as e:
+            print('Precheck error: '+str(e))
+            print('\tattemping to access serial...')
+            time.sleep(1)
+            #self.finish_auto_serial_reading()
+            print('...accessing serial...')
+            self.start_auto_serial_reading()
+            time.sleep(3)
+            self.precheck()
+        except Exception as e:
+            print('exception found'+str(e))
+            return
     
     def is_connected(self):
         return self.serial.isOpen()
@@ -398,6 +413,7 @@ class USBController(base.Controller):
             raise ValueError("Unknown Command")
         self.read_register(comm)
         time.sleep(0.15)
+        #time.sleep(1)
         if not self.auto_serial_reading:
             raise ValueError("Disabled reading serial data. Try calling start_auto_serial_reading()")
         if comm in self.setting_values.keys():
