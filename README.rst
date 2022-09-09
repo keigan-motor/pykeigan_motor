@@ -53,6 +53,8 @@ Install from source::
     cd pykeigan_motor
     python setup.py install
     # and to install BLE Support
+        sudo apt-get install python-pip libglib2.0-dev
+        sudo pip install bluepy
     pip install .[ble]
 
 Install from PyPI::

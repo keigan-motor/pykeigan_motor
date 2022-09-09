@@ -77,15 +77,17 @@ class BLEController(base.Controller):
         except:
             return
     def _run_command(self, val, characteristics=None):
+        crc_buf = calc_crc16_bytes(val)
+        tx_buf = val + crc_buf
         while self.ble_lock:
             time.sleep(0.1)
         self.ble_lock = True
         if characteristics == 'motor_tx':
-            self.dev.writeCharacteristic(self.motor_tx_handle, val)
+            self.dev.writeCharacteristic(self.motor_tx_handle, tx_buf)
         elif characteristics == 'motor_led':
-            self.dev.writeCharacteristic(self.motor_led_handle, val)
+            self.dev.writeCharacteristic(self.motor_led_handle, tx_buf)
         elif characteristics == 'motor_rx':
-            self.dev.writeCharacteristic(self.motor_rx_handle, val)
+            self.dev.writeCharacteristic(self.motor_rx_handle, tx_buf)
         else:
             self.ble_lock = False
             raise ValueError('Invalid Characteristics')
