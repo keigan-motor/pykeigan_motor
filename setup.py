@@ -14,7 +14,7 @@ readme = open(path.join(this_directory, 'README.rst'), encoding='utf-8').read().
 
 setup(
     name='pykeigan_motor',
-    version='2.3.1',
+    version='2.4.0',
     description='Python Library for Keigan Motors (v2)',
     long_description=readme,
     long_description_content_type='text/x-rst',
