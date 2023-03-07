@@ -365,6 +365,18 @@ class Controller:
         values=uint8_t2bytes(flag)
         self._run_command(command+identifier+values,'motor_rx')
 
+    def set_limit_current(self,limit,identifier=b'\x00\x00'):
+
+        """
+        Set current limit threshold to cut off. It is based on Iq current.
+        Please use this function if you are using 
+        """
+        
+        command=b'\x33'
+        values=float2bytes(limit)
+
+        self._run_command(command+identifier+values,'motor_rx')
+
     @property
     def interface_type(self):
         return {

@@ -55,7 +55,10 @@ Exit with key input
 """
 while True:
     print("---------------------------------------")
-    inp=input('Rescan:[s] Exit:[Other key] >>')
+    if sys.version_info<(3,0):
+        inp = raw_input('Rescan:[s] Exit:[Other key] >>')
+    else:
+        inp = input('Rescan:[s] Exit:[Other key] >>')
     if inp == 's':
         scan(10)
     elif inp !=None:

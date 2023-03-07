@@ -26,7 +26,8 @@ args = parser.parse_args()
 os.system('clear')
 for i in range(10):
     print("　　　　　　　")
-print("\033[9;2H","---------------------------------------", "\033[2;2H\033[2K", end="",flush=True)
+print("\033[9;2H","---------------------------------------", "\033[2;2H\033[2K")
+sys.stdout.flush()
 
 """
 ----------------------
@@ -35,13 +36,16 @@ print("\033[9;2H","---------------------------------------", "\033[2;2H\033[2K",
 """
 ##モーター回転情報callback
 def on_motor_measurement_cb(measurement):
-    print("\033[2;2H\033[2K", end="")
-    print('measurement {} '.format(measurement), end="", flush=True)
+    print("\033[2;2H\033[2K")
+    print('measurement {} '.format(measurement))
+    sys.stdout.flush()
 
 ##ログ情報callback
 def on_motor_log_cb(log):
-    print("\033[5;2H\033[2K", end="", flush=True)
-    print('log {} '.format(log), end="", flush=True)
+    print("\033[5;2H\033[2K")
+    sys.stdout.flush()
+    print('log {} '.format(log))
+    sys.stdout.flush()
 
 #接続
 dev = usbcontroller.USBController(args.port)

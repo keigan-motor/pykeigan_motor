@@ -27,14 +27,20 @@ from pykeigan import blecontroller
 def get_motor_informations():
     while True:
         if dev:
-            print("\033[3;2H\033[2K", end="",flush=True)
-            print('status {} '.format(dev.read_status()),end="",flush=True)
+            print("\033[3;2H\033[2K")
+            sys.stdout.flush()
+            print('status {} '.format(dev.read_status()))
+            sys.stdout.flush()
 
-            print("\033[8;2H\033[2K", end="",flush=True)
-            print('measurement {} '.format(dev.read_motor_measurement()), end="",flush=True)
+            print("\033[8;2H\033[2K")
+            sys.stdout.flush()
+            print('measurement {} '.format(dev.read_motor_measurement()))
+            sys.stdout.flush()
 
-            print("\033[12;2H\033[2K", end="",flush=True)
-            print('imu_measurement {} '.format(dev.read_imu_measurement()),end="",flush=True)
+            print("\033[12;2H\033[2K")
+            sys.stdout.flush()
+            print('imu_measurement {} '.format(dev.read_imu_measurement()))
+            sys.stdout.flush()
         sleep(0.5)
 
 #接続
@@ -54,14 +60,19 @@ Exit with key input
 os.system('clear')
 for i in range(20):
     print("　　　　　　　")
-print("\033[17;2H", end="")
+print("\033[17;2H")
 print("---------------------------------------")
-print("\033[3;2H\033[2K", end="",flush=True)
+print("\033[3;2H\033[2K")
+sys.stdout.flush()
 sleep(0.5)
 while True:
-    print("\033[18;2H", end="",flush=True)
+    print("\033[18;2H")
+    sys.stdout.flush()
     print("---------------------------------------")
-    inp = input('Exit:[key input] >>')
+    if sys.version_info<(3,0):
+        inp = raw_input('Exit:[key input] >>')
+    else:
+        inp = input('Exit:[key input] >>')
     if inp !=None:
         dev.set_led(1, 100, 100, 100)
         dev.disable_continual_imu_measurement()

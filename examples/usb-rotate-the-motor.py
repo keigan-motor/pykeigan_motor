@@ -55,7 +55,10 @@ Exit with key input
 """
 while True:
     print("---------------------------------------")
-    inp=input('Exit:[Other key] >>')
+    if sys.version_info <(3,0):
+        inp = raw_input('Exit:[Other key] >>')
+    else:
+        inp = input('Exit:[Other key] >>')
     if inp !=None:
         dev.set_led(1, 100, 100, 100)
         dev.disconnect()

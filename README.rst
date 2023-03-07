@@ -23,11 +23,25 @@ The USB serial functions should work on Windows and Mac too.
 
 Requirements
 ------------------
-- python >= 3.5 (recommended) or 2.7
+
+- python >= 3.5 (recommended)
 - pyserial >= 3.4
 - bluepy >= 1.1.4 (BLE support. Linux only)
 
-**NOTE) We recommend to update your KeiganMotor firmware to the latest as python script can cause error if it use new API commands.**
+**NOTE) This library runs on python 3.5 or later.**  
+
+**If you want to use it with python 2.7 in ROS, etc., please use 2.2.0.**  
+
+**https://github.com/keigan-motor/pykeigan_motor/tree/2.2.0**  
+
+**We recommend to update your KeiganMotor firmware to the latest as python script can cause error if it use new API commands.**  
+  
+
+  *Update 2.4.0*
+
+  - support both python2.7 and 3
+
+
 
 Installation
 -------------------------------
@@ -39,6 +53,8 @@ Install from source::
     cd pykeigan_motor
     python setup.py install
     # and to install BLE Support
+        sudo apt-get install python-pip libglib2.0-dev
+        sudo pip install bluepy
     pip install .[ble]
 
 Install from PyPI::
@@ -127,6 +143,12 @@ KM1Scan.py
 
 Release Notes
 ------------------
+Release 2.4.0
+
+- Added support both python2 and 3 support
+- Update some examples
+- Add reinit, reconnection during initialize
+
 Release 2.2.5
 
 - Respond to KeiganMotor firmware ver >= 2.40

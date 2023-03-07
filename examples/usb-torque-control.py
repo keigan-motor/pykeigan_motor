@@ -24,7 +24,8 @@ args = parser.parse_args()
 os.system('clear')
 for i in range(6):
     print("　　　　　　　")
-print("\033[5;1H","---------------------------------------",  end="",flush=True)
+print("\033[5;1H","---------------------------------------")
+sys.stdout.flush()
 
 """
 ----------------------
@@ -61,7 +62,8 @@ def on_motor_measurement_cb(measurement):
         torque_level=now_torque_level
         dev.set_max_torque(abs(torque_level))
 
-    print('\033[4;1H\033[2K','torque/max_torque:{0:.2f}/{1:.2f}'.format(torque,torque_level), end="", flush=True)
+    print('\033[4;1H\033[2K','torque/max_torque:{0:.2f}/{1:.2f}'.format(torque,torque_level))
+    sys.stdout.flush()
 
 def stop_torque_control_like_closing_cap():
     if dev:
@@ -71,7 +73,8 @@ def stop_torque_control_like_closing_cap():
 
 def start_torque_control_like_closing_cap():
     global torque_level
-    print('\033[2;1H\033[2K', 'Please try to turn the motor by hand.', end="", flush=True)
+    print('\033[2;1H\033[2K', 'Please try to turn the motor by hand.')
+    sys.stdout.flush()
     dev.disable_action()
     dev.preset_position(0)
     sleep(0.2)
@@ -86,8 +89,12 @@ Exit with key input
 
 sleep(0.5)
 while True:
-    print('\033[6;1H\033[2K', end="", flush=True)
-    inp = input('Command input > Start:[s] Reset:[r] Exit:[Other key] >>')
+    print('\033[6;1H\033[2K')
+    sys.stdout.flush()
+    if sys.version_info<(3,0):
+        inp = raw_input('Command input > Start:[s] Reset:[r] Exit:[Other key] >>')
+    else:
+        inp = input('Command input > Start:[s] Reset:[r] Exit:[Other key] >>')
     if inp == 's':
         start_torque_control_like_closing_cap()
     elif inp == 'r':

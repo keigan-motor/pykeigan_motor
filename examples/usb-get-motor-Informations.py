@@ -26,7 +26,8 @@ os.system('clear')
 for i in range(24):
     print("　　　　　　　")
 
-print("\033[19;2H","---------------------------------------", "\033[2;2H\033[2K", end="",flush=True)
+print("\033[19;2H","---------------------------------------", "\033[2;2H\033[2K")
+sys.stdout.flush()
 
 """
 ----------------------
@@ -35,23 +36,29 @@ print("\033[19;2H","---------------------------------------", "\033[2;2H\033[2K"
 """
 ##モーター回転情報callback
 def on_motor_measurement_cb(measurement):
-    print("\033[2;2H\033[2K", end="")
-    print('measurement {} '.format(measurement), end="", flush=True)
+    print("\033[2;2H\033[2K")
+    print('measurement {} '.format(measurement))
+    sys.stdout.flush()
 
 ##IMU情報callback
 def on_motor_imu_measurement_cb(measurement):
-    print("\033[6;2H\033[2K", end="")
-    print('imu_measurement {} '.format(measurement), end="", flush=True)
+    print("\033[6;2H\033[2K")
+    print('imu_measurement {} '.format(measurement))
+    sys.stdout.flush()
 
 ##ログ情報callback
 def on_motor_log_cb(log):
-    print("\033[12;2H\033[2K", end="", flush=True)
-    print('log {} '.format(log), end="", flush=True)
+    print("\033[12;2H\033[2K")
+    sys.stdout.flush()
+    print('log {} '.format(log))
+    sys.stdout.flush()
 
 ##エラー情報callback
 def on_motor_connection_error_cb(e):
-    print("\033[16;2H\033[2K", end="", flush=True)
-    print('error {} '.format(e), end="", flush=True)
+    print("\033[16;2H\033[2K")
+    sys.stdout.flush()
+    print('error {} '.format(e))
+    sys.stdout.flush()
 
 
 #接続
@@ -83,9 +90,13 @@ Exit with key input
 
 sleep(0.5)
 while True:
-    print("\033[20;2H", end="",flush=True)
+    print("\033[20;2H")
+    sys.stdout.flush()
     print("---------------------------------------")
-    inp = input('Exit:[key input] >>')
+    if sys.version_info <(3,0):
+        inp = raw_input('Exit:[key input] >>')
+    else:
+        inp = input('Exit:[key input] >>')
     if inp !=None:
         dev.set_led(1, 100, 100, 100)
         dev.disable_action()

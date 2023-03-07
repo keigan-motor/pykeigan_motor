@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import struct
+import sys
 
 def float2bytes(float_value):
     float_value=float(float_value)
@@ -119,7 +120,10 @@ def calc_crc16(buf):
 
     c = 0
     for val in buf:
-        num = (c ^ val) & 0xFF
+        if sys.version_info < (3, 0) : val_hex = struct.unpack('B', val)[0]
+        else: val_hex=val
+        num = (c ^ val_hex) & 0xFF
+        #num = (c ^ val) & 0xFF
         c = calc_crc16_bytes.CRC_TABLE[num] ^ (c >> 8)
     
     return c
