@@ -251,15 +251,21 @@ class USBController(base.Controller):
 
                         if self.is_check_sum_enabled:
                             if calc_crc16(buf_to_validate) == 0:
-                                success = self.__serialdataParse(payload)
+                                success = self.__serialdataParseSafe(payload)
                         else:
-                            success = self.__serialdataParse(payload)
+                            success = self.__serialdataParseSafe(payload)
                         slice_idx = ie + 4
                         i = ie + 3
                         is_pre = False
                         break
             i += 1
         self.serial_buf = self.serial_buf[slice_idx:]
+
+    def __serialdataParseSafe(self, byte_array):
+        try:
+            return self.__serialdataParse(byte_array)
+        except Exception as e:
+            return False
 
     def __serialdataParse(self, byte_array):
         v_len = len(byte_array)
