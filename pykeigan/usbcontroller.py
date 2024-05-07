@@ -29,14 +29,7 @@ class USBController(base.Controller):
         self.try_reconnect = False
         self.reconn_err_cnt = 0
         #try to connect to serial port
-        try:
-            self.serial = serial.Serial(port, baud, 8, 'N', 1, None, False, True, write_timeout=0.1)
-        except Exception as e:
-            print('Error occured while trying to connect to serial port. Please recheck you USB connection.')
-            print('attemping to reinit... ')
-            time.sleep(3)
-            self.reinit()
-            return
+        self.serial = self.__init_serial(port, baud)
             
         self.on_motor_measurement_value_cb = False
         self.on_motor_imu_measurement_cb = False
@@ -64,15 +57,15 @@ class USBController(base.Controller):
             print('...reconnecting...')
             #self.disconnect()
             #self.__init__()
-            
-    def reinit(self):
-        try:
-            print('\n...reiniting...\n')
-            self.__init__()
-            return
-        except Exception as e:
-            time.sleep(3)
-            self.reinit()
+
+    def __init_serial(self, port, baud):
+        while True:
+            try:
+                return serial.Serial(port, baud, 8, 'N', 1, None, False, True, write_timeout=0.1)
+            except Exception as e:
+                print('Error occured while trying to connect to serial port. Please recheck you USB connection.')
+                print('attemping to reinit... ')
+                time.sleep(3)
     
     def is_connected(self):
         return self.serial.isOpen()
@@ -194,8 +187,8 @@ class USBController(base.Controller):
 
     def __serial_schedule_worker(self):
         while True:
+            time.sleep(self.read_serial_polling_time) # less than minimum motor measurement interval
             if self.auto_serial_reading:
-                time.sleep(self.read_serial_polling_time) # less than minimum motor measurement interval
                 e_res = self.__read_serial_data()
             else:
                 print("stop auto_serial_reading")
@@ -258,15 +251,21 @@ class USBController(base.Controller):
 
                         if self.is_check_sum_enabled:
                             if calc_crc16(buf_to_validate) == 0:
-                                success = self.__serialdataParse(payload)
+                                success = self.__serialdataParseSafe(payload)
                         else:
-                            success = self.__serialdataParse(payload)
+                            success = self.__serialdataParseSafe(payload)
                         slice_idx = ie + 4
                         i = ie + 3
                         is_pre = False
                         break
             i += 1
         self.serial_buf = self.serial_buf[slice_idx:]
+
+    def __serialdataParseSafe(self, byte_array):
+        try:
+            return self.__serialdataParse(byte_array)
+        except Exception as e:
+            return False
 
     def __serialdataParse(self, byte_array):
         v_len = len(byte_array)
