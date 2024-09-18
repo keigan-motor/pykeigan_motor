@@ -47,6 +47,7 @@ class USBController(base.Controller):
         #print('-- precheck reading value')
         try:
             self.start_auto_serial_reading()
+            time.sleep(0.1)
             self._read_setting_value(0x46)#motor_name
             self._read_setting_value(0x47)#motor_info
             
