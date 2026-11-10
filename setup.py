@@ -19,7 +19,7 @@ setup(
     long_description=readme,
     long_description_content_type='text/x-rst',
     install_requires=['pyserial'],
-    extras_require={'ble' : ['bluepy']},
+    extras_require={'ble' : ['bleak>=0.22']},
     author='Tomohiro Takata, Hiroshi Harada, Takashi Tokuda',
     author_email='takata@innovotion.co.jp, harada@keigan.co.jp, tokuda@keigan.co.jp',
     url='https://github.com/keigan-motor/pykeigan_motor',

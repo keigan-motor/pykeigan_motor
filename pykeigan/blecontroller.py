@@ -5,64 +5,181 @@ Created on Thu Jan 10 09:13:24 2018
 
 @author: takata@innovotion.co.jp
 @author: harada@keigan.co.jp
+
+BLE controller for KeiganMotor, based on bleak (Windows / Linux incl. Raspberry Pi / macOS).
+
+bleak is asyncio based. This controller runs its own event loop in a background
+thread so that the public API stays synchronous (same as USBController).
+Notification callbacks (on_motor_measurement_value_cb etc.) are called from that
+background thread; keep them short and do not call blocking BLEController
+methods from inside them.
 """
+import asyncio
+import atexit
+import threading
+import time
+
+from bleak import BleakClient, BleakScanner
+
 from pykeigan import controller as base
-import struct, time,threading, atexit
-from bluepy import btle
 from pykeigan.utils import *
 
+SERVICE_UUID = 'f140ea35-8936-4d35-a0ed-dfcd795baa8c'
+
+
+def _uuid(n):
+    return 'f14000{:02x}-8936-4d35-a0ed-dfcd795baa8c'.format(n)
+
+
+CHAR_UUIDS = {
+    'motor_tx': _uuid(0x01),
+    'motor_led': _uuid(0x03),
+    'motor_measurement': _uuid(0x04),
+    'motor_imu_measurement': _uuid(0x05),
+    'motor_rx': _uuid(0x06),
+}
+
+FLOAT_VALUE_COMMS = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x5B]
+VALID_COMMS = [0x05, 0x3A, 0x46, 0x47, 0x9A] + FLOAT_VALUE_COMMS
+
+
+class _LoopThread(object):
+    """asyncio event loop running in a daemon thread."""
+
+    def __init__(self):
+        self.loop = asyncio.new_event_loop()
+        self.thread = threading.Thread(target=self._run, name='pykeigan-ble', daemon=True)
+        self.thread.start()
+
+    def _run(self):
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_forever()
+
+    def call(self, coro, timeout=None):
+        return asyncio.run_coroutine_threadsafe(coro, self.loop).result(timeout)
+
+
+_shared_loop = None
+_shared_loop_lock = threading.Lock()
+_scanned_devices = {}  # address(upper) -> BLEDevice found by scan(); lets connect() skip rescanning
+
+
+def _get_loop():
+    """All BLE operations (scan and every controller) share one event loop thread."""
+    global _shared_loop
+    with _shared_loop_lock:
+        if _shared_loop is None:
+            _shared_loop = _LoopThread()
+        return _shared_loop
+
+
+def scan(timeout=5.0):
+    """
+    Scan KeiganMotors nearby.
+    Returns a list of dict {'name', 'address', 'rssi'} sorted by signal strength.
+    On Windows / Linux no administrator (sudo) privileges are required.
+    """
+    async def _scan():
+        found = await BleakScanner.discover(timeout=timeout, return_adv=True)
+        result = []
+        for d, adv in found.values():
+            name = adv.local_name or d.name or ''
+            uuids = [u.lower() for u in adv.service_uuids]
+            if SERVICE_UUID in uuids or name.startswith('KM-1'):
+                _scanned_devices[d.address.upper()] = d
+                result.append({'name': name, 'address': d.address, 'rssi': adv.rssi})
+        return sorted(result, key=lambda x: -x['rssi'])
+    return _get_loop().call(_scan(), timeout + 10.0)
+
+
 class BLEController(base.Controller):
-    def __init__(self, addr,debug_mode=False):
+    def __init__(self, addr, debug_mode=False, timeout=10.0):
+        """
+        Connect to the KeiganMotor at 'addr'.
+        'addr' is the MAC address (Windows / Linux) or the device UUID (macOS).
+        """
         self.address = addr
-        self.dev = btle.Peripheral(self.address, 'random')
-        self.ble_lock = False
-        for v in self.dev.getCharacteristics():
-            if v.uuid == 'f1400001-8936-4d35-a0ed-dfcd795baa8c':
-                self.motor_tx_handle = v.getHandle()
-            if v.uuid == 'f1400003-8936-4d35-a0ed-dfcd795baa8c':
-                self.motor_led_handle = v.getHandle()
-            if v.uuid == 'f1400004-8936-4d35-a0ed-dfcd795baa8c':
-                self.motor_measurement_handle = v.getHandle()
-            if v.uuid == 'f1400005-8936-4d35-a0ed-dfcd795baa8c':
-                self.motor_imu_measurement_handle = v.getHandle()
-            if v.uuid == 'f1400006-8936-4d35-a0ed-dfcd795baa8c':
-                self.motor_rx_handle = v.getHandle()
-        self.DebugMode=False
-        if debug_mode:
-            self.start_debug()
+        self.timeout = timeout
+        self.DebugMode = debug_mode
+        self.setting_values = {}
+        self._setting_events = {}
+        self._motor_measurement_value = None
+        self._imu_measurement_value = None
+
+        self.on_motor_measurement_value_cb = False
+        self.on_motor_imu_measurement_cb = False
+        self.on_motor_connection_error_cb = False
+        self.on_motor_log_cb = False
+        self.on_motor_event_cb = False
+
+        self._client = None
+        self._write_lock = None
+        self._closing = False
+        self._worker = _get_loop()
+        atexit.register(self._cleanup)
+        self.connect()
         self.set_interface(self.interface_type['BLE'] + self.interface_type['BTN'])
 
-    def print_command_log(self,ba):
-        print(self.command_names[bytes2uint8_t(ba[3:4])],self.error_codes[bytes2uint16_t(ba[7:9])])
+    # ------------------------------------------------------------
+    # connection
+    # ------------------------------------------------------------
+    def connect(self):
+        """
+        Establish the BLE connection.
+        """
+        self._worker.call(self._connect(), self.timeout + 10.0)
 
-    def start_command_log_capturing(self):
-        self.t = threading.Thread(target=self.__log_schedule_worker)
-        self.t.setDaemon(True)
-        self.t.start()
-        atexit.register(self.__all_done)
+    async def _connect(self):
+        self._write_lock = asyncio.Lock()
+        self._closing = False
+        cached = _scanned_devices.pop(self.address.upper(), None)
+        try:
+            if cached is None:
+                raise LookupError
+            await self.__connect_device(cached)
+        except Exception:
+            # no cache, or the cached device is stale (e.g. the motor was rebooted): scan again
+            device = await BleakScanner.find_device_by_address(self.address, timeout=self.timeout)
+            if device is None:
+                raise ConnectionError('KeiganMotor not found: {}'.format(self.address))
+            await self.__connect_device(device)
 
-    def __log_schedule_worker(self):
-        old_ba = None
-        while True:
-            time.sleep(1)
-            if not self.ble_lock:
-                self.ble_lock=True
-                ba = self.dev.readCharacteristic(self.motor_rx_handle)
-                if bytes2uint8_t(ba[0:1]) == 0xBE and len(ba)==14:
-                    if ba!=old_ba:
-                        old_ba = ba
-                        self.print_command_log(ba)
-                self.ble_lock=False
-            if self.DebugMode == False:
-                break
+    async def __connect_device(self, device):
+        self._client = BleakClient(device, disconnected_callback=self._on_disconnected)
+        await self._client.connect(timeout=self.timeout)
+        await self._client.start_notify(CHAR_UUIDS['motor_measurement'], self._on_motor_measurement)
+        await self._client.start_notify(CHAR_UUIDS['motor_imu_measurement'], self._on_imu_measurement)
+        await self._client.start_notify(CHAR_UUIDS['motor_rx'], self._on_rx)
 
+    def is_connected(self):
+        return self._client is not None and self._client.is_connected
+
+    def disconnect(self):
+        """
+        Close the BLE connection.
+        """
+        self._closing = True
+        if self.is_connected():
+            self._worker.call(self._client.disconnect(), self.timeout)
+
+    def _cleanup(self):
+        try:
+            self.disconnect()
+        except Exception:
+            pass
+
+    def _on_disconnected(self, client):
+        if not self._closing and callable(self.on_motor_connection_error_cb):
+            self.on_motor_connection_error_cb(ConnectionError('BLE disconnected'))
+
+    # ------------------------------------------------------------
+    # debug
+    # ------------------------------------------------------------
     def start_debug(self):
         """
         Start to print command logs
         """
-        if self.DebugMode==False:
-            self.start_command_log_capturing()
-            self.DebugMode=True
+        self.DebugMode = True
 
     def finish_debug(self):
         """
@@ -70,138 +187,141 @@ class BLEController(base.Controller):
         """
         self.DebugMode = False
 
-    def __all_done(self):
-        try:
-            if self.t.isAlive():
-                self.t.join(0.01)
-        except:
-            return
+    # ------------------------------------------------------------
+    # write
+    # ------------------------------------------------------------
     def _run_command(self, val, characteristics=None):
-        crc_buf = calc_crc16_bytes(val)
-        tx_buf = val + crc_buf
-        while self.ble_lock:
-            time.sleep(0.1)
-        self.ble_lock = True
-        if characteristics == 'motor_tx':
-            self.dev.writeCharacteristic(self.motor_tx_handle, tx_buf)
-        elif characteristics == 'motor_led':
-            self.dev.writeCharacteristic(self.motor_led_handle, tx_buf)
-        elif characteristics == 'motor_rx':
-            self.dev.writeCharacteristic(self.motor_rx_handle, tx_buf)
-        else:
-            self.ble_lock = False
+        if characteristics not in ('motor_tx', 'motor_led', 'motor_rx'):
             raise ValueError('Invalid Characteristics')
-        self.ble_lock = False
-    def connect(self):
-        """
-        Establish the BLE connection.
-        """
-        self.dev.connect(self.address, 'random')
+        tx_buf = val + calc_crc16_bytes(val)
+        self._worker.call(self._write(CHAR_UUIDS[characteristics], tx_buf), self.timeout)
 
-    def disconnect(self):
-        """
-        Close the BLE connection.
-        """
-        if self.DebugMode:
-            self.DebugMode = False
-            time.sleep(0.5)
-        self.dev.disconnect()
+    async def _write(self, uuid, data):
+        async with self._write_lock:
+            await self._client.write_gatt_char(uuid, data, response=True)
 
-    def read_motor_measurement(self):
+    # ------------------------------------------------------------
+    # notifications (called in the event loop thread)
+    # ------------------------------------------------------------
+    def _on_motor_measurement(self, _, data):
+        if len(data) < 12:
+            return
+        self._motor_measurement_value = {'position': bytes2float(data[0:4]), 'velocity': bytes2float(data[4:8]),
+                                         'torque': bytes2float(data[8:12]), 'received_unix_time': time.time()}
+        if callable(self.on_motor_measurement_value_cb):
+            self.on_motor_measurement_value_cb(self._motor_measurement_value)
+
+    def _on_imu_measurement(self, _, data):
+        if len(data) < 14:
+            return
+        self._imu_measurement_value = self.__parse_imu(data)
+        if callable(self.on_motor_imu_measurement_cb):
+            self.on_motor_imu_measurement_cb(self._imu_measurement_value)
+
+    def _on_rx(self, _, data):
+        # [datatype][identifier(2)][payload...][crc(2)]  (same layout as USB after the length byte)
+        data = bytes(data)
+        if len(data) < 4:
+            return
+        datatype = data[0]
+        payload = data[1:]
+        try:
+            if datatype == 0x40:  # register value
+                self.__parse_register(payload)
+            elif datatype == 0xBE:  # command log
+                cmd = bytes2uint8_t(payload[2:3])
+                err_code = bytes2uint32_t(payload[3:7])
+                log = {'command_names': cmd, 'error_codes': err_code}
+                if callable(self.on_motor_log_cb):
+                    self.on_motor_log_cb(log)
+                if self.DebugMode:
+                    print(self.command_names.get(cmd, hex(cmd)), self.error_codes.get(err_code, err_code))
+            elif datatype == 0xCE:  # event (button etc.)
+                event = {'event_type': self.event_types[bytes2uint8_t(payload[0:1])],
+                         'number': bytes2uint8_t(payload[1:2]), 'state': bytes2uint8_t(payload[2:3])}
+                if callable(self.on_motor_event_cb):
+                    self.on_motor_event_cb(event)
+        except Exception as e:
+            if self.DebugMode:
+                print('BLE rx parse error:', e, data.hex())
+
+    def __parse_register(self, payload):
+        comm = bytes2uint8_t(payload[2:3])
+        value = payload[3:]
+        if comm in FLOAT_VALUE_COMMS:
+            val = bytes2float(value[0:4])
+        elif comm == 0x05:
+            val = bytes2uint8_t(value[0:1])
+        elif comm == 0x3A:
+            val = bytes2uint8_t(value[0:1]), bytes2uint8_t(value[1:2]), bytes2uint8_t(value[2:3])
+        elif comm in (0x46, 0x47):  # device name / device info (variable length, last 2 bytes are CRC)
+            val = value[:-2].decode('utf-8', 'replace').rstrip('\x00')
+        elif comm == 0x9A:
+            bits_list = [int(n) for n in bin(bytes2uint8_t(value[0:1]))[2:].zfill(8)]
+            val = {"isCheckSumEnabled": bits_list[0], "iMUMeasurement": bits_list[4], "motorMeasurement": bits_list[5],
+                   "queue": bits_list[6], "motorEnabled": bits_list[7],
+                   "flash_memory_state": self.flash_memory_states[bytes2uint8_t(value[1:2])],
+                   "motor_control_mode": self.motor_control_modes[bytes2uint8_t(value[2:3])]}
+        else:
+            return
+        self.setting_values[comm] = val, time.time()
+        event = self._setting_events.get(comm)
+        if event is not None:
+            event.set()
+
+    @staticmethod
+    def __parse_imu(ba):
+        return {'accel_x': bytes2int16_t(ba[0:2]) * 2.0 / 32767,
+                'accel_y': bytes2int16_t(ba[2:4]) * 2.0 / 32767,
+                'accel_z': bytes2int16_t(ba[4:6]) * 2.0 / 32767,
+                'temp': bytes2int16_t(ba[6:8]) / 333.87 + 21.00,
+                'gyro_x': bytes2int16_t(ba[8:10]) * 0.00013316211,
+                'gyro_y': bytes2int16_t(ba[10:12]) * 0.00013316211,
+                'gyro_z': bytes2int16_t(ba[12:14]) * 0.00013316211,
+                'received_unix_time': time.time()}
+
+    # ------------------------------------------------------------
+    # read
+    # ------------------------------------------------------------
+    def _read_char(self, name):
+        return bytes(self._worker.call(self._client.read_gatt_char(CHAR_UUIDS[name]), self.timeout))
+
+    def read_motor_measurement(self, validation_threshold=0.5):
         """
         Get the position, velocity, and torque and store them to the properties 'position' in rad, 'velocity' in rad/sec, and 'torque' in N.m.
+        Returns the latest notified value, or reads the characteristic directly if no recent notification.
         """
-        while self.ble_lock:
-            time.sleep(0.1)
-        self.ble_lock = True
-        ba = self.dev.readCharacteristic(self.motor_measurement_handle)
-        error_count=0
-        while len(ba)!=12:
-            ba = self.dev.readCharacteristic(self.motor_measurement_handle)
-            error_count+=1
-            if error_count>10:
-                raise ValueError("Unknown Error. Reading motor measurement values failed.")
-        self.ble_lock = False
-        position = bytes2float(ba[0:4])
-        velocity = bytes2float(ba[4:8])
-        torque = bytes2float(ba[8:12])
+        v = self._motor_measurement_value
+        if v is not None and time.time() - v['received_unix_time'] < validation_threshold:
+            return v
+        ba = self._read_char('motor_measurement')
+        if len(ba) < 12:
+            raise ValueError("Unknown Error. Reading motor measurement values failed.")
+        return {'position': bytes2float(ba[0:4]), 'velocity': bytes2float(ba[4:8]), 'torque': bytes2float(ba[8:12]),
+                'received_unix_time': time.time()}
 
-        return {'position': position, 'velocity': velocity, 'torque': torque, 'received_unix_time': time.time()}
-
-    def read_imu_measurement(self):
+    def read_imu_measurement(self, validation_threshold=0.5):
         """
         Get the x,y,z axis acceleration, temperature, and anguler velocities around x,y,z axis
         and store them to 'accel_x', 'accel_y', 'accel_z' in g(9.80665 m/s^2), 'temp' in degree Celsius, 'gyro_x', 'gyro_y', and 'gyro_z' in rad/sec. Need to call enable_continual_imu_measurement() before calling this function.
         """
-        while self.ble_lock:
-            time.sleep(0.1)
-        self.ble_lock = True
-        ba = self.dev.readCharacteristic(self.motor_imu_measurement_handle)
-        error_count = 0
-        while len(ba) != 14:
-            ba = self.dev.readCharacteristic(self.motor_imu_measurement_handle)
-            error_count+=1
-            if error_count>10:
-                raise ValueError("Reading imu values failed. Did you call enable_continual_imu_measurement() beforehand?")
-        self.ble_lock = False
-        accel_x = bytes2int16_t(ba[0:2]) * 2.0 / 32767
-        accel_y = bytes2int16_t(ba[2:4]) * 2.0 / 32767
-        accel_z = bytes2int16_t(ba[4:6]) * 2.0 / 32767
-        temp = bytes2int16_t(ba[6:8]) / 333.87 + 21.00
-        gyro_x = bytes2int16_t(ba[8:10]) * 0.00013316211
-        gyro_y = bytes2int16_t(ba[10:12]) * 0.00013316211
-        gyro_z = bytes2int16_t(ba[12:14]) * 0.00013316211
-        return {'accel_x': accel_x, 'accel_y': accel_y, 'accel_z': accel_z, 'temp': temp, 'gyro_x': gyro_x,
-                'gyro_y': gyro_y, 'gyro_z': gyro_z, 'received_unix_time': time.time()}
+        v = self._imu_measurement_value
+        if v is not None and time.time() - v['received_unix_time'] < validation_threshold:
+            return v
+        ba = self._read_char('motor_imu_measurement')
+        if len(ba) < 14:
+            raise ValueError("Reading imu values failed. Did you call enable_continual_imu_measurement() beforehand?")
+        return self.__parse_imu(ba)
 
-    def __read_float_data(self, ba):
-        return bytes2float(ba[4:8])
-
-    def __read_uint8_data(self, ba):
-        return bytes2uint8_t(ba[4:5])
-
-    def __read_rgb_data(self, ba):
-        return bytes2uint8_t(ba[4:5]), bytes2uint8_t(ba[5:6]),bytes2uint8_t(ba[6:7])
-
-    def __read_devicename_data(self, ba):
-        return ba[4:17].decode('utf-8')
-
-    def __read_deviceinfo_data(self, ba):
-        return ba[4:35].decode('utf-8')
-
-    def __read_status_data(self, ba):
-        bits_list = [int(n) for n in bin(bytes2uint8_t(ba[4:5]))[2:].zfill(8)]
-        return {"isCheckSumEnabled": bits_list[0], "iMUMeasurement": bits_list[4], "motorMeasurement": bits_list[5],
-                "queue": bits_list[6], "motorEnabled": bits_list[7],
-                "flash_memory_state": self.flash_memory_states[bytes2uint8_t(ba[5:6])],
-                "motor_control_mode": self.motor_control_modes[bytes2uint8_t(ba[6:7])]}
-
-    def _read_setting_value(self, comm):
-        float_value_comms = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x5B]
-        valid_comms = [0x05, 0x3A, 0x46, 0x47, 0x9A]
-        valid_comms.extend(float_value_comms)
-        if not (comm in valid_comms):
+    def _read_setting_value(self, comm, timeout=1.0):
+        if comm not in VALID_COMMS:
             raise ValueError("Unknown Command")
-        self.read_register(comm)
-        while self.ble_lock:
-            time.sleep(0.1)
-        self.ble_lock = True
-        ba = self.dev.readCharacteristic(self.motor_rx_handle)
-        while len(ba) == 6 or bytes2uint8_t(ba[0:1]) == 0xBE:
-            if bytes2uint8_t(ba[0:1]) == 0xBE: #in the case where the last command log remains
-                self.read_register(comm)
-            ba = self.dev.readCharacteristic(self.motor_rx_handle)
-        self.ble_lock = False
-        if comm in float_value_comms:
-            return self.__read_float_data(ba)
-        if comm == 0x05:
-            return self.__read_uint8_data(ba)
-        if comm == 0x3A:
-            return self.__read_rgb_data(ba)
-        if comm == 0x46:
-            return self.__read_devicename_data(ba)
-        if comm == 0x47:
-            return self.__read_deviceinfo_data(ba)
-        if comm == 0x9A:
-            return self.__read_status_data(ba)
-        return ba
+        event = threading.Event()
+        self._setting_events[comm] = event
+        try:
+            self.read_register(comm)
+            if not event.wait(timeout):
+                raise ValueError("No data received")
+            return self.setting_values[comm][0]
+        finally:
+            self._setting_events.pop(comm, None)

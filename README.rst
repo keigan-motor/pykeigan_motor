@@ -15,9 +15,9 @@ https://www.keigan-motor.com/
 
 **Just in case you can get v1 from: https://github.com/keigan-motor/pykeigan_motor/tree/v1**
 
-At present we support Linux only for BLE, because the BLE functions of this library depends on bluepy(Python interface to Bluetooth LE on Linux by Mr. Ian Harvey):
+The BLE functions of this library depend on bleak (cross-platform Bluetooth Low Energy client), and work on Windows and Linux (including Raspberry Pi 4/5):
 
-https://github.com/IanHarvey/bluepy
+https://github.com/hbldh/bleak
 
 The USB serial functions should work on Windows and Mac too.
 
@@ -26,7 +26,7 @@ Requirements
 
 - python >= 3.5 (recommended)
 - pyserial >= 3.4
-- bluepy >= 1.1.4 (BLE support. Linux only)
+- bleak >= 0.22 (BLE support. python >= 3.8, Windows 10+ / Linux with BlueZ >= 5.55)
 
 **NOTE) This library runs on python 3.5 or later.**  
 
@@ -53,8 +53,6 @@ Install from source::
     cd pykeigan_motor
     python setup.py install
     # and to install BLE Support
-        sudo apt-get install python-pip libglib2.0-dev
-        sudo pip install bluepy
     pip install .[ble]
 
 Install from PyPI::
@@ -103,23 +101,21 @@ To use your Keigan Motor through USB serial, you need to add R/W permission to i
 - examples/usb-teaching-control.py
     Let the Motor record and playback your motion.
 
-BLE (for Linux Only)
+BLE (Windows / Linux)
 ----------------------
 You need to know the MAC address of your Keigan Motor for BLE connection.
-
-For example, you can use the following simple script. Please run with sudo.
+Scanning does not require sudo / administrator privileges.
 
 KM1Scan.py
 
 .. code-block:: python
 
-  from bluepy.btle import Scanner
-  scanner=Scanner()
-  devices=scanner.scan(5.0)
-  for dev in devices:
-      for (adtype, desc, value) in dev.getScanData():
-          if desc=="Complete Local Name" and "KM-1" in value:
-              print(value,":",dev.addr)
+  from pykeigan import blecontroller
+  for km in blecontroller.scan(5.0):
+      print(km['name'], ":", km['address'])
+
+- Raspberry Pi: bleak uses BlueZ via D-Bus. Make sure the bluetooth service is running (``sudo systemctl enable --now bluetooth``) and the user is in the ``bluetooth`` group.
+- Measurement values are received by BLE notifications. ``on_motor_measurement_value_cb``, ``on_motor_imu_measurement_cb``, ``on_motor_log_cb`` and ``on_motor_event_cb`` can be used in the same way as USBController. Callbacks are called from a background thread.
 
 - Simplest Sample Code
     Rotate counter-clockwise with 1.0 rad/sec.

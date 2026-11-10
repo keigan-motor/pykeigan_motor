@@ -6,7 +6,7 @@ Github
 ## Requirements
 + python >= 3.5 (recommended) or 2.6
 + pyserial >= 3.4
-+ bluepy >= 1.1.4
++ bleak >= 0.22 (BLE, Windows / Linux(Raspberry Pi 4/5 含む))
 
 ## BLEサンプル
 
@@ -14,15 +14,15 @@ Github
     
     Bluetooth接続で使用するKeiganMotorのモーターのMACアドレスを検出するのに使用
     
-    BluetoothのScanner実行には管理者権限が必要な為、sudoで実行
-
-        $sudo python KM1Scan.py
+    管理者権限(sudo)は不要です
+    
+        $python3 KM1Scan.py
 
 + ble-scanner-connection.py
 
-    BluetoothのScanner実行には管理者権限が必要な為、sudoで実行
+    管理者権限(sudo)は不要です
     
-        $sudo python3 ble-scanner-connection.py
+        $python3 ble-scanner-connection.py
 
 + ble-simple-connection.py
 
