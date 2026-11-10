@@ -56,6 +56,11 @@ class _LoopThread(object):
         self.loop.run_forever()
 
     def call(self, coro, timeout=None):
+        if threading.current_thread() is self.thread:
+            # called from a callback (on_motor_*_cb): waiting here would block the loop itself
+            coro.close()
+            raise RuntimeError('BLEController commands cannot be called from callbacks. '
+                               'Store the value in the callback and send commands from another thread.')
         return asyncio.run_coroutine_threadsafe(coro, self.loop).result(timeout)
 
 

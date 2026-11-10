@@ -71,6 +71,58 @@ MACアドレスを引数で指定できます。省略した場合はスキャ�
         from ble_select import select_motor
         address = select_motor()          # 選択された MACアドレス (中止時は None)
 
+### 複数台のモーター (BLE)
+
+MACアドレスごとに `BLEController` を作ると、複数のモーターを同時に制御できます。MACアドレスを引数で複数指定するか、省略してスキャン結果から `0,1` のように番号をカンマ区切りで選択します (`a` ですべて)。選択した順に番号が付き、モーターの LED がそれぞれ違う色で点灯します。
+
+    During scanning at 5.0 sec
+      [0] KM-1U XXXX#54C : EF:16:B8:BB:D9:52 (RSSI -52)
+      [1] KM-1U YYYY#12A : D1:5A:FA:A7:D9:5D (RSSI -70)
+    Connect:[numbers e.g. 0,1 / a=all] Rescan:[r] Quit:[q] >>0,1
+
++ ble-multi-simple-connection.py
+
+    複数のモーターに接続し、モーターごとに違う色で LED を点滅させて 5rpm で同時に正転。キー入力で停止・切断。
+    
+        $python3 ble-multi-simple-connection.py
+        $python3 ble-multi-simple-connection.py xx:xx:xx:xx:xx:xx yy:yy:yy:yy:yy:yy
+
++ ble-multi-get-motor-Informations.py
+
+    全モーターの 位置[deg] / 速度[rpm] / トルク と、回転情報の受信頻度[Hz] を一覧表示 (モーターは動かさない)。台数を増やしたときの通信状況の確認にも使えます。キー入力で終了。
+    
+        $python3 ble-multi-get-motor-Informations.py [MACアドレス ...]
+
++ ble-multi-position-control.py
+
+    全モーターを同じ角度の列 (TARGETS_DEG) へ同期して移動。全モーターの到着を待ってから次の目標へ同時に動き出す。起動時の各モーターの位置を 0° とする (原点は書き換えない)。`REVERSE_ODD = True` で奇数番目のモーターを逆向きに動かす。Ctrl-C で中断。
+    
+        $python3 ble-multi-position-control.py [MACアドレス ...]
+
++ ble-multi-follow.py
+
+    1台目 (リーダー) を脱力させ、手で回すと 2台目以降 (フォロワー) が同じ角度だけ追従する。`--reverse` でフォロワーを逆向きに回す。フォロワーは最大 60rpm (`MAX_SPEED_RPM`) で動くので周囲に注意して下さい。Ctrl-C で終了。
+    
+        $python3 ble-multi-follow.py                         (最初に選んだモーターがリーダー)
+        $python3 ble-multi-follow.py LEADER FOLLOWER [FOLLOWER ...]
+        $python3 ble-multi-follow.py --reverse
+
++ ble_multi.py
+
+    複数台サンプル共通の処理 (直接は実行しません)。
+    
+        from ble_multi import get_addresses, connect_motors, run_all, disconnect_all
+        motors = connect_motors(get_addresses())     # スキャンして選択し、1台ずつ順番に接続
+        run_all(motors, lambda m: m.enable_action()) # 全モーターに並列に送信 (動き出しのずれが小さい)
+        disconnect_all(motors)
+
+複数台の注意
+
++ 同時に接続できる台数は BLE アダプターに依存します (目安 5〜7台。Raspberry Pi 内蔵の Bluetooth はより少ない台数で不安定になることがあり、その場合は USB の BLE ドングルを使って下さい)。
++ 台数が増えると、1台あたりの通信が遅くなります (回転情報の受信頻度が下がります)。
++ 接続中のモーターはスキャンに出てこないため、使うモーターをすべて選んでから接続します。
++ コールバック (`on_motor_*_cb`) の中からモーターへコマンドを送ることはできません (RuntimeError になります)。コールバックでは値を保存するだけにして、コマンドはメインスレッドなどから送って下さい (ble-multi-follow.py を参照)。
+
 ### プログラムからの使い方
 
     from pykeigan import blecontroller
@@ -83,7 +135,8 @@ MACアドレスを引数で指定できます。省略した場合はスキャ�
     dev.set_speed(1.0)
     dev.run_forward()
 
-+ 回転情報・IMU情報・レジスタ値は BLE の notify で受信します。`on_motor_measurement_value_cb` / `on_motor_imu_measurement_cb` / `on_motor_log_cb` / `on_motor_event_cb` を USBController と同様に使えます。コールバックはバックグラウンドのスレッドから呼ばれます。
++ 回転情報・IMU情報・レジスタ値は BLE の notify で受信します。`on_motor_measurement_value_cb` / `on_motor_imu_measurement_cb` / `on_motor_log_cb` / `on_motor_event_cb` を USBController と同様に使えます。コールバックはバックグラウンドのスレッドから呼ばれます。コールバックの中からはコマンドを送れません。
++ 複数台: MACアドレスごとに `BLEController` を作ります (`[blecontroller.BLEController(a) for a in addresses]`)。上の「複数台のモーター」を参照。
 + `read_motor_measurement()` / `read_imu_measurement()` は最新の受信値を返します(受信が無い場合は直接読み出し)。
 
 ### Bluetoothでモーターが検出されない場合

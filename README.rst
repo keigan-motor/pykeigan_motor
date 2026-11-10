@@ -167,6 +167,42 @@ BLE examples take the MAC address as the first argument. If omitted, they scan a
 - examples/ble_select.py
     Common "scan and select" helper used by the BLE examples (``from ble_select import select_motor``).
 
+Multiple Motors (BLE)
+^^^^^^^^^^^^^^^^^^^^^^
+Create one ``BLEController`` per MAC address to control multiple Motors at the same time.
+Each controller has its own connection and callbacks (all controllers share one background thread).
+
+.. code-block:: python
+
+  from pykeigan import blecontroller
+  blecontroller.scan(5.0)   # scan once first (connected Motors do not advertise)
+  motors = [blecontroller.BLEController(a) for a in ["xx:xx:xx:xx:xx:xx", "yy:yy:yy:yy:yy:yy"]]
+  for i, m in enumerate(motors):
+      m.on_motor_measurement_value_cb = lambda v, i=i: print(i, v['position'])
+      m.enable_continual_motor_measurement()
+
+The multi-motor examples take MAC addresses as arguments. If omitted, they scan and let you select Motors by numbers (e.g. ``0,1``, or ``a`` for all)::
+
+    python3 examples/ble-multi-simple-connection.py xx:xx:xx:xx:xx:xx yy:yy:yy:yy:yy:yy
+    python3 examples/ble-multi-simple-connection.py
+    Connect:[numbers e.g. 0,1 / a=all] Rescan:[r] Quit:[q] >>0,1
+
+- examples/ble-multi-simple-connection.py
+    Connect to multiple Motors, blink the LEDs in different colors and rotate them at 5 rpm at the same time.
+- examples/ble-multi-get-motor-Informations.py
+    Show the position, velocity, torque and notification rate [Hz] of all Motors in a table.
+- examples/ble-multi-position-control.py
+    Synchronized position control: all Motors move to the same angles and wait for all of them to arrive.
+- examples/ble-multi-follow.py
+    Leader / follower: turn the first Motor (free) by hand and the others follow it (``--reverse`` for the opposite direction).
+- examples/ble_multi.py
+    Common helpers for the multi-motor examples (select, connect, send to all Motors in parallel, disconnect).
+
+Notes for multiple Motors:
+
+- The number of simultaneous connections depends on the BLE adapter (about 5-7 in general; the built-in adapter of Raspberry Pi may be less stable). Use a USB BLE dongle if needed.
+- Commands cannot be sent from callbacks (``RuntimeError``). Store values in the callback and send commands from another thread (see ble-multi-follow.py).
+
 If the Motor is not found by scanning:
 
 - Close smartphone apps (KMQuick etc.) or other PCs connected to the Motor. The Motor stops advertising while connected.
