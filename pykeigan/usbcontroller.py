@@ -187,11 +187,15 @@ class USBController(base.Controller):
             return e
 
     def __serial_schedule_worker(self):
+        was_reading = True
         while True:
             time.sleep(self.read_serial_polling_time) # less than minimum motor measurement interval
             if self.auto_serial_reading:
+                was_reading = True
                 e_res = self.__read_serial_data()
-            else:
+            elif was_reading:
+                # 停止直後に1回だけ通知する(毎周期printするとログが洪水になるため)
+                was_reading = False
                 print("stop auto_serial_reading")
 
     def __read_serial_data(self):
