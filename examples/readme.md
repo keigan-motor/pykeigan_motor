@@ -88,6 +88,15 @@ Bluetoothでモーターが検出されない場合は、モーターの"イン�
     モーターの相対・絶対移動
     
         $python3 usb-position-control.py
+
++ usb-offset-position-control.py
+
+    モーターの原点を書き換えず、プログラム側のオフセット(OFFSET_DEG)で機械の0°を決めて絶対位置移動
+
+    --measure を付けると現在位置を表示するだけで終了します(モーターは動きません)。表示された値を OFFSET_DEG に設定してから実行して下さい。
+    
+        $python3 usb-offset-position-control.py /dev/ttyUSB0 --measure
+        $python3 usb-offset-position-control.py /dev/ttyUSB0
         
 + usb-rotate-the-motor.py
 
