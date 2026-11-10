@@ -147,8 +147,7 @@ class USBController(base.Controller):
             return
         self.auto_serial_reading = True
         if self.worker is None:
-            self.worker = threading.Thread(target=self.__serial_schedule_worker)
-            self.worker.setDaemon(True)
+            self.worker = threading.Thread(target=self.__serial_schedule_worker, daemon=True)
             self.worker.start()
             atexit.register(self.__all_done)
 
@@ -157,7 +156,7 @@ class USBController(base.Controller):
 
     def __all_done(self):
         try:
-            if self.worker.isAlive():
+            if self.worker.is_alive():
                 self.worker.join(0.01)
                 self.serial.close()
         except:
@@ -318,7 +317,7 @@ class USBController(base.Controller):
             if comm in float_value_comms:
                 self.setting_values[comm] = bytes2float(payload[3:7]), time.time()
                 return True
-            elif comm == 0x05:
+            elif comm in (0x05, 0x2C, 0x3C, 0xC3):
                 self.setting_values[comm] = bytes2uint8_t(payload[3:4]), time.time()
                 return True
             elif comm == 0x3A:
@@ -396,20 +395,22 @@ class USBController(base.Controller):
     def _read_setting_value(self, comm, validation_threshold=1.0):#Register infomation
         float_value_comms = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21,
                              0x5B]
-        valid_comms = [0x05, 0x3A, 0x46, 0x47, 0x9A]
+        valid_comms = [0x05, 0x2C, 0x3A, 0x3C, 0x46, 0x47, 0x9A, 0xC3]
         valid_comms.extend(float_value_comms)
         if not (comm in valid_comms):
             raise ValueError("Unknown Command")
-        self.read_register(comm)
-        time.sleep(0.15)
         if not self.auto_serial_reading:
             raise ValueError("Disabled reading serial data. Try calling start_auto_serial_reading()")
-        if comm in self.setting_values.keys():
-            val, received_unix_time = self.setting_values[comm]
-            print("rev time", time.time() - received_unix_time)
-            return val
-        else:
-            raise ValueError("No data received")
+        # 以前の読み出し結果を返さないよう、要求を送った時刻より後に受信した値だけを採用する
+        requested_unix_time = time.time()
+        self.read_register(comm)
+        deadline = requested_unix_time + validation_threshold
+        while time.time() < deadline:
+            entry = self.setting_values.get(comm)
+            if entry is not None and entry[1] >= requested_unix_time:
+                return entry[0]
+            time.sleep(0.005)
+        raise ValueError("No data received")
 
     def __read_measurement_value(self, comm, validation_threshold=1.0):
         measurement_value=None

@@ -918,8 +918,9 @@ class Controller:
         """
         command=b'\xB7'
         values = uint16_t2bytes(index)
-        self._run_command(command + identifier + values, 'motor_tx')
+        # 応答が先に届いても取りこぼさないよう、送信前にコールバックを登録する
         self.on_read_motion_read_comp_cb=read_comp_cb
+        self._run_command(command + identifier + values, 'motor_tx')
         return True
 
     def write_motion_position(self,position,identifier=b'\x00\x00'):
