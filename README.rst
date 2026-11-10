@@ -81,25 +81,43 @@ To use your Keigan Motor through USB serial, you need to add R/W permission to i
 .. code-block:: python
 
   from pykeigan import usbcontroller
-  dev=usbcontroller.USBContoller('/dev/serial/by-id/usb-FTDI_FT230X_Basic_UART_DM00xxxx-if00-port0')
+  dev=usbcontroller.USBController('/dev/serial/by-id/usb-FTDI_FT230X_Basic_UART_DM00xxxx-if00-port0')
   dev.enable_action()
   dev.set_speed(1.0)
   dev.run_forward()
 
+USB examples take the port as the first argument (default: /dev/ttyUSB0). On Windows use ``COM3`` etc.::
+
+    python3 examples/usb-simple-connection.py /dev/ttyUSB0
+    python examples\usb-simple-connection.py COM3
+
 - examples/usb-simple-connection.py
-    Basic connection to the Motor.
+    Basic connection to the Motor. Blink the LED and rotate at 5 rpm.
 - examples/usb-rotate-the-motor.py
-    Rotate the Motor continuously and stop.
+    Rotate the Motor forward (10 s), reverse (10 s), stop with torque and free.
 - examples/usb-position-control.py
     Rotate the Motor to the relative and absolute position.
+- examples/usb-offset-position-control.py
+    Absolute positioning with a program-side offset (OFFSET_DEG) as the machine zero, without overwriting the Motor's origin.
+    Run with ``--measure`` first to print the current position without moving the Motor.
+- examples/usb-move_wait_queue.py
+    Move to the next position after the arrival (move_to_pos_wait): 0 -> 90 -> 0 -> -90 -> 0 deg.
 - examples/usb-get-motor-Informations.py
-    Acquire the speed, position, torque and IMU values of the Motor.
+    Acquire the speed, position, torque and IMU values of the Motor (with motor time, firmware >= 2.62).
+- examples/usb-get-motor-Info-time.py
+    Same as usb-get-motor-Informations.py without the motor time setting.
 - examples/usb-actuator.py
-    Let the Motor go and return for the specific distance.
+    Let the Motor go and return between 0 and 720 deg.
+- examples/usb-button_trigger.py
+    Get the button events of the Motor. Set ``port1`` in the file.
+- examples/usb-sine-wave.py
+    Sine wave position control with a graph (requires matplotlib, Linux only because of signal.setitimer).
 - examples/usb-torque-control.py
     Demonstration for a torque control. Increase the torque as you rotate the Motor by hand.
 - examples/usb-teaching-control.py
     Let the Motor record and playback your motion.
+- examples/windows_examples/
+    USB examples for Windows (COM port selection, PID / baud rate settings, taskset, etc.). See examples/readme.md for details.
 
 BLE (Windows / Linux)
 ----------------------
@@ -128,14 +146,32 @@ KM1Scan.py
   dev.set_speed(1.0)
   dev.run_forward()
 
-- examples/ble-simple-connection.py
-    Basic connection to the Motor.
+BLE examples take the MAC address as the first argument. If omitted, they scan and let you select the Motor from the list (connect automatically if only one is found)::
+
+    python3 examples/ble-simple-connection.py xx:xx:xx:xx:xx:xx
+    python3 examples/ble-simple-connection.py
+      [0] KM-1U XXXX#54C : EF:16:B8:BB:D9:52 (RSSI -52)
+      [1] KM-1U YYYY#12A : D1:5A:FA:A7:D9:5D (RSSI -70)
+    Connect:[number] Rescan:[r] Quit:[q] >>
+
+- examples/KM1Scan.py
+    Scan Keigan Motors and print the names and MAC addresses (argument: scan seconds).
 - examples/ble-scanner-connection.py
-    Connect to the Motor by BLE scanning.
+    Scan, select and connect to the Motor, and blink the LED. Press [s] to rescan and switch to another Motor (the connected Motor is disconnected before scanning, because a connected Motor does not advertise).
+- examples/ble-simple-connection.py
+    Basic connection to the Motor. Blink the LED and rotate at 5 rpm.
 - examples/ble-rotate-the-motor.py
-    Rotate the Motor continuously and stop.
+    Rotate the Motor forward (10 s), reverse (10 s), stop with torque and free.
 - examples/ble-get-motor-Informations.py
-     Acquire the speed, position, torque and IMU values of the Motor.
+    Acquire the status, speed, position, torque and IMU values of the Motor.
+- examples/ble_select.py
+    Common "scan and select" helper used by the BLE examples (``from ble_select import select_motor``).
+
+If the Motor is not found by scanning:
+
+- Close smartphone apps (KMQuick etc.) or other PCs connected to the Motor. The Motor stops advertising while connected.
+- BLE may be disabled after a USB connection. Enable it by KMQuick or reboot the Motor.
+- Reset the interface of the Motor: https://document.keigan-motor.com/basic/reset
 
 Release Notes
 ------------------
