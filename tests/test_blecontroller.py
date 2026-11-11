@@ -158,7 +158,7 @@ def test_read_setting_value_waits_for_notification():
     c.read_register = fake_read_register
     assert c.read_imu_measurement_interval() == 5
     with pytest.raises(ValueError):
-        c._read_setting_value(0xCC)  # not supported by BLE
+        c._read_setting_value(0xFF)  # unknown register
 
 
 # ------------------------------------------------------------

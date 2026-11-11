@@ -259,6 +259,7 @@ Release 2.5.0
 - BLE: ``read_motor_measurement()`` / ``read_imu_measurement()`` return the latest notified value (within ``validation_threshold`` sec) or read the value directly.
 - BLE (incompatible changes): removed ``BLEController.dev`` (bluepy Peripheral), ``start_command_log_capturing()`` and ``print_command_log()``.
   ``start_debug()`` only prints the command logs received by notifications. Commands raise ``ConnectionError`` while disconnected, and ``TimeoutError`` on timeout.
+- Removed ``read_gpio_status()`` (register 0xCC is not supported by the library).
 - New BLE examples (scan & select, multiple Motors, link check) and usb-offset-position-control.py.
 
 Release 2.4.0

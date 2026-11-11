@@ -1164,9 +1164,3 @@ class Controller:
         pass
     def _read_motion_value(self):#dummy
         pass
-
-    def read_gpio_status(self):
-        """
-        Read the GPIO status of the motor.
-        """
-        return self._read_setting_value(0xCC)
