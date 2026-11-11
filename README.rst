@@ -260,6 +260,15 @@ Release 2.5.0
 - BLE (incompatible changes): removed ``BLEController.dev`` (bluepy Peripheral), ``start_command_log_capturing()`` and ``print_command_log()``.
   ``start_debug()`` only prints the command logs received by notifications. Commands raise ``ConnectionError`` while disconnected, and ``TimeoutError`` on timeout.
 - Removed ``read_gpio_status()`` (register 0xCC is not supported by the library).
+- USB: register reads return only a value received after the request (no stale cache).
+  ``read_motor_measurement_interval()``, ``read_imu_measurement_interval()`` and ``read_baud_rate()`` are supported.
+- USB: the end of a frame is found by its length byte (frames whose data contained 0D 0A were dropped),
+  and the whole device name is read (it was truncated to 13 characters).
+- USB: ``on_motor_log_cb`` also receives unknown commands / error codes.
+- USB: ``USBController(port, open_timeout=None)``: raises ``ConnectionError`` after ``open_timeout`` sec if the port cannot be opened (default: retry forever as before).
+- USB: ``read_motor_measurement()`` / ``read_imu_measurement()`` take ``validation_threshold`` (same as BLE).
+- Python 3.9+: replaced ``Thread.isAlive()`` (removed in Python 3.9), so the port is closed at exit.
+- ``read_motion()``: the completion callback is registered before sending the command.
 - New BLE examples (scan & select, multiple Motors, link check) and usb-offset-position-control.py.
 
 Release 2.4.0
