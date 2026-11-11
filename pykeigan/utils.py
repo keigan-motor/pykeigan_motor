@@ -1,16 +1,24 @@
 # -*- coding: utf-8 -*-
+"""
+Unit conversions (deg2rad, rpm2rad_per_sec, ...) and byte conversions used by the controllers.
 
+The controllers use rad, rad/sec and N.m. Convert the values with these functions, e.g.
+dev.set_speed(utils.rpm2rad_per_sec(10)) or utils.rad2deg(m['position']).
+"""
 import struct
 import sys
 
 def float2bytes(float_value):
+    """Convert a float to 4 bytes (big endian)."""
     float_value=float(float_value)
     return struct.pack("!f", float_value)
 
 def bytes2float(byte_array):
+    """Convert 4 bytes (big endian) to a float."""
     return struct.unpack('!f',byte_array)[0]
 
 def uint8_t2bytes(uint8_value):
+    """Convert an integer 0-255 to 1 byte."""
     uint8_value=int(uint8_value)
     if uint8_value<0:
         raise TypeError("Argument should be positive or equal to zero")
@@ -19,6 +27,7 @@ def uint8_t2bytes(uint8_value):
     return struct.pack("B",uint8_value)
 
 def uint16_t2bytes(uint16_value):
+    """Convert an integer 0-65535 to 2 bytes (big endian)."""
     uint16_value=int(uint16_value)
     if uint16_value<0:
         raise TypeError("Argument should be positive or equal to zero")
@@ -30,6 +39,7 @@ def uint16_t2bytes(uint16_value):
 
 
 def uint16_t2bytes_little(uint16_value):
+    """Convert an integer 0-65535 to 2 bytes (little endian)."""
     uint16_value=int(uint16_value)
     if uint16_value<0:
         raise TypeError("Argument should be positive or equal to zero")
@@ -40,6 +50,7 @@ def uint16_t2bytes_little(uint16_value):
     return struct.pack("<BB",val2,val1)
 
 def uint32_t2bytes(uint32_value):
+    """Convert an integer 0-4294967295 to 4 bytes (big endian)."""
     uint32_value=int(uint32_value)
     if uint32_value<0:
         raise TypeError("Argument should be positive or equal to zero")
@@ -52,34 +63,44 @@ def uint32_t2bytes(uint32_value):
     return struct.pack("BBBB",val1,val2,val3,val4)
 
 def bytes2uint32_t(ba):
+    """Convert 4 bytes (big endian) to an unsigned integer."""
     return struct.unpack(">I",ba)[0]
 
 def bytes2uint16_t(ba):
+    """Convert 2 bytes (big endian) to an unsigned integer."""
     return struct.unpack(">H", ba)[0]
 
 def bytes2uint8_t(ba):
+    """Convert 1 byte to an unsigned integer."""
     return struct.unpack("B",ba)[0]
 
 def bytes2int16_t(ba):
+    """Convert 2 bytes (big endian) to a signed integer."""
     return struct.unpack(">h",ba)[0]
 
 def bytes2int16_t_little(ba):
+    """Convert 2 bytes (little endian) to a signed integer."""
     return struct.unpack("<h",ba)[0]
 
 def deg2rad(degree):
+    """Convert degrees to radians."""
     return degree*0.017453292519943295
 
 def rad2deg(radian):
+    """Convert radians to degrees."""
     return radian/ 0.017453292519943295
 
 def rpm2rad_per_sec(rpm):
+    """Convert rpm to rad/sec."""
     return rpm *0.10471975511965977
 
 def rad_per_sec2rpm(radian_per_sec):
+    """Convert rad/sec to rpm."""
     return radian_per_sec/0.10471975511965977
 
 
 def calc_crc16(buf):
+    """Calculate the CRC16 (reflected polynomial 0x8408, initial value 0) of the bytes. Returns an integer."""
     calc_crc16_bytes.CRC_TABLE = [ \
         0 , 0x1189 , 0x2312 , 0x329b , 0x4624 , 0x57ad , 0x6536 , 0x74bf , \
         0x8c48 , 0x9dc1 , 0xaf5a , 0xbed3 , 0xca6c , 0xdbe5 , 0xe97e , 0xf8f7 , \
@@ -129,6 +150,7 @@ def calc_crc16(buf):
     return c
 
 def calc_crc16_bytes(buf):
+    """Calculate the CRC16 of the bytes. Returns 2 bytes (little endian)."""
     crc16 = calc_crc16(buf)
     #print(crc16)
     return uint16_t2bytes_little(crc16)

@@ -1,12 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Jan 10 09:13:24 2018
-
-@author: takata@innovotion.co.jp
-@author: harada@keigan.co.jp
-
-BLE controller for KeiganMotor, based on bleak (Windows / Linux incl. Raspberry Pi / macOS).
+BLE controller for KeiganMotor, based on bleak (Windows / Linux incl. Raspberry Pi; macOS is not tested).
 
 bleak is asyncio based. This controller runs its own event loop in a background
 thread so that the public API stays synchronous (same as USBController).
@@ -14,6 +9,8 @@ Notification callbacks (on_motor_measurement_value_cb etc.) are called from that
 background thread; keep them short and do not call blocking BLEController
 methods from inside them.
 """
+# Created on Thu Jan 10 09:13:24 2018
+# Authors: Tomohiro Takata, Hiroshi Harada (Keigan Inc.)
 import asyncio
 import atexit
 import collections
@@ -376,7 +373,7 @@ class BLEController(base.Controller):
     def __init__(self, addr, debug_mode=False, timeout=10.0, retries=2):
         """
         Connect to the KeiganMotor at 'addr'.
-        'addr' is the MAC address (Windows / Linux) or the device UUID (macOS).
+        'addr' is the MAC address (Windows / Linux) or the device UUID (macOS, not tested).
         'timeout' is the time limit [sec] of each scan / connection attempt.
         'retries' is the number of additional connection attempts when connecting fails
         (BLE connections sometimes fail to be established, e.g. Raspberry Pi with 2.4GHz Wi-Fi).

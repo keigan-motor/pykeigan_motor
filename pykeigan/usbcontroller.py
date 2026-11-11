@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Jan 10 09:13:24 2018
+USB serial controller for KeiganMotor, based on pyserial (Windows / macOS / Linux).
 
-@author: takata@innovotion.co.jp
-@author: Hiroshi Harada (Keigan Inc.)
-@author: Takashi Tokuda (Keigan Inc.)
+Received data (measurement values, logs, events, register values) are read by a background thread.
+Callbacks (on_motor_measurement_value_cb etc.) are called from that thread.
 """
+# Created on Thu Jan 10 09:13:24 2018
+# Authors: Tomohiro Takata, Hiroshi Harada, Takashi Tokuda (Keigan Inc.)
 from pykeigan import controller as base
 import serial, struct, threading, atexit, time
 from pykeigan.utils import *
@@ -78,6 +79,9 @@ class USBController(base.Controller):
                 time.sleep(3)
 
     def is_connected(self):
+        """
+        Return True if the serial port is open.
+        """
         return self.serial.is_open
     
     def connect(self):
@@ -90,6 +94,9 @@ class USBController(base.Controller):
         time.sleep(0.1)
     
     def recover(self):
+        """
+        Restart reading the received data (start_auto_serial_reading()), e.g. after finish_auto_serial_reading().
+        """
         self.start_auto_serial_reading()
 
     def disconnect(self, reconnect=False):
@@ -102,6 +109,11 @@ class USBController(base.Controller):
         self.serial.close()
 
     def reconnect(self):
+        """
+        Reopen the serial port, retrying every second until it succeeds.
+        Called automatically when the USB connection is lost (if 'reconnect' is True).
+        on_motor_reconnection_cb(count) is called after reconnecting.
+        """
         if not self.shouldReconnect or self.try_reconnect: return
         self.disconnect(self.shouldReconnect)
         self.reconn_err_cnt=0
@@ -152,6 +164,9 @@ class USBController(base.Controller):
         self.DebugMode = False
 
     def start_auto_serial_reading(self):
+        """
+        Start reading the received data in the background thread (started automatically when connecting).
+        """
         if self.auto_serial_reading:
             return
         self.auto_serial_reading = True
@@ -161,6 +176,10 @@ class USBController(base.Controller):
             atexit.register(self.__all_done)
 
     def finish_auto_serial_reading(self):
+        """
+        Stop reading the received data. Measurement values and register reads are not received until
+        start_auto_serial_reading() is called.
+        """
         self.auto_serial_reading = False
 
     def __all_done(self):
@@ -437,4 +456,7 @@ class USBController(base.Controller):
         return self.__read_measurement_value(0xB5, validation_threshold)
 
     def my_cleanup(self):
+        """
+        Stop reading the received data before exiting (registered with atexit). Not needed to call directly.
+        """
         self.finish_auto_serial_reading()

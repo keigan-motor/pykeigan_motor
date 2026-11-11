@@ -1,15 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thr Jan 10 09:13:24 2018
+Commands and register reads of KeiganMotor, common to USB and BLE.
 
-@author: takata@innovotion.co.jp
-@author: harada@keigan.co.jp
+USBController (usbcontroller) and BLEController (blecontroller) inherit Controller,
+so all the methods here can be used in the same way with both of them.
+Units: position [rad], speed / velocity [rad/sec], torque [N.m] (see pykeigan.utils to convert).
 """
+# Created on Thu Jan 10 09:13:24 2018
+# Authors: Tomohiro Takata, Hiroshi Harada (Keigan Inc.)
 import serial,struct,threading,atexit,time
 from pykeigan.utils import *
 
 class Controller:
+    """
+    Base class of USBController and BLEController. Do not create it directly.
+
+    Most methods take an optional 'identifier' (2 bytes) attached to the command.
+    Usually it is not needed.
+    """
     def __init__(self):
         pass
 
@@ -17,18 +26,22 @@ class Controller:
         pass
     @property
     def flash_memory_states(self):
+        """Names of the flash memory states ('flash_memory_state' of read_status())."""
         return {0:"FLASH_STATE_READY",1:"FLASH_STATE_TEACHING_PREPARE",2:"FLASH_STATE_TEACHING_DOING",3:"FLASH_STATE_PLAYBACK_PREPARE",4:"FLASH_STATE_PLAYBACK_DOING",5:"FLASH_STATE_PLAYBACK_PAUSING",6:"FLASH_STATE_TASKSET_RECORDING",7:"FLASH_STATE_TASKSET_DOING",8:"FLASH_STATE_TASKSET_PAUSING",20:"FLASH_STATE_IMU"}
 
     @property
     def motor_control_modes(self):
+        """Names of the motor control modes ('motor_control_mode' of read_status())."""
         return {0:"MOTOR_CONTROL_MODE_NONE",1:"MOTOR_CONTROL_MODE_VELOCITY",2:"MOTOR_CONTROL_MODE_POSITION",3:"MOTOR_CONTROL_MODE_TORQUE",0xFF:"MOTOR_CONTROL_MODE_OTHERS"}
     
     @property
     def baud_rates(self):
+        """Baud rates of UART (USB) for set_baud_rate() and read_baud_rate(), keyed by the setting number."""
         return {0:"115200",1:"230400",2:"250000",3:"460800",4:"921600",5:"1000000"}
 
     @property
     def error_codes(self):
+        """Names of the error codes in the log notifications (on_motor_log_cb)."""
         return {
                 0x00:"KM_SUCCESS",
                 0x03:"KM_ERROR_NOT_FOUND",
@@ -49,6 +62,7 @@ class Controller:
     
     @property
     def command_names(self):
+        """Method names of the commands in the log notifications (on_motor_log_cb), keyed by the command number."""
         return {
                 0x00:"unknown",
                 0x02:"set_max_speed",
@@ -162,6 +176,7 @@ class Controller:
     
     @property
     def event_types(self):
+        """Names of the event types in the event notifications (on_motor_event_cb)."""
         return {1:"button", 10:"gpio"}
     
     # Settings
@@ -242,7 +257,7 @@ class Controller:
 
     def set_qcurrent_p(self,q_current_p,identifier=b'\x00\x00'):
         """
-        Set the q-axis current PID controller's Proportional gain to the postiive 'q_current_p'.
+        Set the q-axis current PID controller's Proportional gain to the positive 'q_current_p'.
         """
         command=b'\x18'
         values=float2bytes(q_current_p)
@@ -258,7 +273,7 @@ class Controller:
 
     def set_qcurrent_d(self,q_current_d,identifier=b'\x00\x00'):
         """
-        Set the q-axis current PID controller's Differential gain to the postiive 'q_current_d'.
+        Set the q-axis current PID controller's Differential gain to the positive 'q_current_d'.
         """
         command=b'\x1A'
         values=float2bytes(q_current_d)
@@ -282,7 +297,7 @@ class Controller:
 
     def set_speed_d(self,speed_d,identifier=b'\x00\x00'):
         """
-        Set the speed PID controller's Deferential gain to the positive 'speed_d'.
+        Set the speed PID controller's Differential gain to the positive 'speed_d'.
         """
         command=b'\x1D'
         values=float2bytes(speed_d)
@@ -372,8 +387,7 @@ class Controller:
     def set_limit_current(self,limit,identifier=b'\x00\x00'):
 
         """
-        Set current limit threshold to cut off. It is based on Iq current.
-        Please use this function if you are using 
+        Set the current limit threshold 'limit' to cut off. It is based on the Iq current.
         """
         
         command=b'\x33'
@@ -383,6 +397,7 @@ class Controller:
 
     @property
     def interface_type(self):
+        """Bit flags of the interfaces for set_interface(). Add them to enable several interfaces."""
         return {
             "BLE": 0b1,
             "USB": 0b1000,
@@ -862,7 +877,7 @@ class Controller:
     def start_teaching_motion(self,index,time_ms,identifier=b'\x00\x00'):
         """
         Start teaching motion without preparing by specifying the 'index' in the flash memory and recording 'time' in milliseconds.
-        In the case of KM-1, index value is from 0 to 9 (10 in total).  Recording time cannot exceed 65408 [msec].
+        The index is from 0 to 19 (20 in total, firmware 1.19 or later).  Recording time cannot exceed 65408 [msec].
         """
         command=b'\xA9'
         values=uint16_t2bytes(index)+uint32_t2bytes(time_ms)
@@ -871,7 +886,7 @@ class Controller:
     def prepare_teaching_motion(self,index,time_ms,identifier=b'\x00\x00'):
         """
         Prepare teaching motion by specifying the 'index' in the flash memory and recording 'time' in milliseconds.
-        In the case of KM-1, index value is from 0 to 9 (10 in total).  Recording time cannot exceed 65408 [msec].
+        The index is from 0 to 19 (20 in total, firmware 1.19 or later).  Recording time cannot exceed 65408 [msec].
         """
         command=b'\xAA'
         values=uint16_t2bytes(index)+uint32_t2bytes(time_ms)
@@ -895,7 +910,7 @@ class Controller:
     def erase_motion(self,index,identifier=b'\x00\x00'):
         """
         Erase motion at the specified index in the flash memory.
-        In the case of KM-1, index value is from 0 to 9 (10 in total).
+        The index is from 0 to 19 (20 in total, firmware 1.19 or later).
         """
         command=b'\xAD'
         values=uint16_t2bytes(index)
@@ -1002,6 +1017,9 @@ class Controller:
         self._run_command(command+identifier,'motor_tx')
 
     def enable_check_sum(self,isEnabled,identifier=b'\x00\x00'):
+        """
+        Enable (1) or disable (0) the checksum (CRC16) of the frames sent from the Motor.
+        """
         command=b'\xF3'
         values=uint8_t2bytes(isEnabled)
         self._run_command(command+identifier+values,'motor_tx')
@@ -1156,7 +1174,7 @@ class Controller:
 
     def read_imu_measurement_interval(self):
         """
-        Get the motor measurement interval.
+        Get the IMU measurement interval.
         """
         return self._read_setting_value(0x3C) 
 
