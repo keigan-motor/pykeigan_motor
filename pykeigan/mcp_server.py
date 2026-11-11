@@ -8,7 +8,7 @@ Install:  pip install pykeigan_motor[mcp]          (Python >= 3.10)
 Run:      pykeigan-mcp --usb COM3                   (or /dev/ttyUSB0)
           pykeigan-mcp --ble XX:XX:XX:XX:XX:XX
           pykeigan-mcp                              (connect later with the 'connect' tool)
-Register: claude mcp add keigan -- pykeigan-mcp --usb COM3
+Register: claude mcp add keiganmotor -- pykeigan-mcp --usb COM3
 
 Units of the tools are degrees and rpm (the library itself uses rad and rad/sec).
 Safety: speeds and torques above --max-rpm / --max-torque are rejected. The connection is opened
@@ -162,7 +162,7 @@ class MotorSession(object):
 
 def create_server(session):
     """Create the MCP server whose tools operate 'session' (a MotorSession)."""
-    server = MCPServer(name='pykeigan', title='KeiganMotor',
+    server = MCPServer(name='keiganmotor', title='KeiganMotor',
                        instructions=INSTRUCTIONS.format(max_rpm=session.max_rpm, max_torque=session.max_torque))
 
     # -------------------- connection --------------------

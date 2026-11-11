@@ -251,7 +251,7 @@ Release Notes
 Release 3.0.0
 
 - MCP server: ``pykeigan-mcp`` lets AI assistants (Claude Code, Claude Desktop, etc.) control a Motor over USB or BLE.
-  ``pip install pykeigan_motor[mcp]`` (python >= 3.10), then e.g. ``claude mcp add keigan -- pykeigan-mcp --usb COM3``.
+  ``pip install pykeigan_motor[mcp]`` (python >= 3.10), then e.g. ``claude mcp add keiganmotor -- pykeigan-mcp --usb COM3``.
   Units are degrees and rpm. Speeds / torques above ``--max-rpm`` (60) / ``--max-torque`` (0.3 N.m) are rejected.
 - Errors: new ``pykeigan.errors`` with the causes, remedies and the meaning of the info value of all the firmware error codes.
   ``errors.describe(log)`` makes a readable message. See "Errors and Troubleshooting" in the documentation.
