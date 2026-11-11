@@ -49,7 +49,7 @@ def on_motor_log_cb(log):
     sys.stdout.flush()
 
 #接続
-dev=usbcontroller.USBController('/dev/ttyUSB0',False)
+dev=usbcontroller.USBController(args.port,False)
 dev.on_motor_measurement_value_cb=on_motor_measurement_cb
 dev.on_motor_log_cb=on_motor_log_cb
 

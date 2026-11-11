@@ -184,12 +184,15 @@ class Controller:
     def set_curve_type(self,curve_type,identifier=b'\x00\x00'):
         """
         Set the acceleration or deceleration curve to the 'curve_type'.
-        typedef enum curveType =
-        {
-            CURVE_TYPE_NONE = 0, // Turn off Motion control
-            CURVE_TYPE_TRAPEZOID = 1, // Turn on Motion control with trapezoidal curve
-            CURVE_TYPE_DIRECT_POS = 10 // Turn off Motion control (Direct position control)
-        }
+
+        ::
+
+            typedef enum curveType =
+            {
+                CURVE_TYPE_NONE = 0, // Turn off Motion control
+                CURVE_TYPE_TRAPEZOID = 1, // Turn on Motion control with trapezoidal curve
+                CURVE_TYPE_DIRECT_POS = 10 // Turn off Motion control (Direct position control)
+            }
         """
         command=b'\x05'
         values=uint8_t2bytes(curve_type)
@@ -350,16 +353,17 @@ class Controller:
     def set_motor_measurement_settings(self,flag,identifier=b'\x00\x00'):
         """
         Set the notification setting of motor measurement values.
-        -----------
-        bit7: -
-        bit6: -
-        bit5: -
-        bit4: -
-        bit3: -
-        bit2: -
-        bit1: Notification of motor measurement (1:ON, 0:OFF)
-        bit0: To start Notification of motor measurement when booting(1:ON, 0:OFF)
-        -----------
+
+        ::
+
+            bit7: -
+            bit6: -
+            bit5: -
+            bit4: -
+            bit3: -
+            bit2: -
+            bit1: Notification of motor measurement (1:ON, 0:OFF)
+            bit0: To start Notification of motor measurement when booting(1:ON, 0:OFF)
         """
         command=b'\x2D'
         values=uint8_t2bytes(flag)
@@ -460,16 +464,17 @@ class Controller:
     def set_imu_measurement_settings(self,flag,identifier=b'\x00\x00'):
         """
         Set the notification setting of IMU.
-        -----------
-        bit7: -
-        bit6: -
-        bit5: -
-        bit4: -
-        bit3: -
-        bit2: -
-        bit1: Notification of IMU (1:ON, 0:OFF)
-        bit0: To start Notification of IMU when booting(1:ON, 0:OFF)
-        -----------
+
+        ::
+
+            bit7: -
+            bit6: -
+            bit5: -
+            bit4: -
+            bit3: -
+            bit2: -
+            bit1: Notification of IMU (1:ON, 0:OFF)
+            bit0: To start Notification of IMU when booting(1:ON, 0:OFF)
         """
         command=b'\x3D'
         values=uint8_t2bytes(flag)
@@ -478,11 +483,12 @@ class Controller:
     def set_autostart_setting(self, mode, identifier=b'\x00\x00'):
         """
         Set the button setting  (Motor Firmware Ver. requires >= 2.42)
-        -----------
-        mode = 0:  Without auto start 
-        mode = 1:  Auto start doing taskset (config by set_taskset_trigger_settings)
-        mode = 2:  Auto start playback motion (config by set_motion_trigger_settings)
-        -----------
+
+        ::
+
+            mode = 0:  Without auto start
+            mode = 1:  Auto start doing taskset (config by set_taskset_trigger_settings)
+            mode = 2:  Auto start playback motion (config by set_motion_trigger_settings)
         """
         command=b'\xBC'
         values=uint8_t2bytes(mode)
@@ -492,11 +498,12 @@ class Controller:
     def set_button_setting(self, mode, identifier=b'\x00\x00'):
         """
         Set the button setting  (MotorFirmVer. >= 2.28)
-        -----------
-        mode = 0:  Manual button mode with Motion 
-        mode = 1:  Manual button mode with Taskset
-        mode = 30: Child button mode (Receive button action event from KeiganMotor)
-        -----------
+
+        ::
+
+            mode = 0:  Manual button mode with Motion
+            mode = 1:  Manual button mode with Taskset
+            mode = 30: Child button mode (Receive button action event from KeiganMotor)
         """
         command=b'\xBD'
         values=uint8_t2bytes(mode)
@@ -913,7 +920,9 @@ class Controller:
         """
         Externally output the motion stored by direct teaching. (Motor farm ver>=2.0)
         It is valid only for a wired connection(USB).
-          callback signature
+
+        callback signature::
+
             read_comp_cb(motion_index,motion_value[])
         """
         command=b'\xB7'
@@ -927,9 +936,10 @@ class Controller:
         """
         Record one coordinate of movement from the outside. (Motor farm ver>=2.0)
         It is valid only for a wired connection(USB).
-            ※ This command can not be accepted unless it is in prepareTeaching state.What to do after running "prepareTeachingMotion"
-            ※ This command records coordinates one by one. If one record is made, it will be waiting to record the next coordinate.
-            ※ After recording coordinates with this command, recording can not be completed normally unless stopTeaching is executed.
+
+        - ※ This command can not be accepted unless it is in prepareTeaching state.What to do after running "prepareTeachingMotion"
+        - ※ This command records coordinates one by one. If one record is made, it will be waiting to record the next coordinate.
+        - ※ After recording coordinates with this command, recording can not be completed normally unless stopTeaching is executed.
         """
         command=b'\xB8'
         values = float2bytes(position)
@@ -939,13 +949,16 @@ class Controller:
     def set_led(self,ledState,red,green,blue,identifier=b'\x00\x00'):
         """
         Set the LED state (off, solid, flash and dim) and color intensity (red, green and blue).
-        typedef enum ledState =
-        {
-            LED_STATE_OFF = 0, // LED off
-            LED_STATE_ON_SOLID = 1, // LED solid
-            LED_STATE_ON_FLASH = 2, // LED flash
-            LED_STATE_ON_DIM = 3 // LED dim
-        }
+
+        ::
+
+            typedef enum ledState =
+            {
+                LED_STATE_OFF = 0, // LED off
+                LED_STATE_ON_SOLID = 1, // LED solid
+                LED_STATE_ON_FLASH = 2, // LED flash
+                LED_STATE_ON_DIM = 3 // LED dim
+            }
         """
         command=b'\xE0'
         values=uint8_t2bytes(ledState)+uint8_t2bytes(red)+uint8_t2bytes(green)+uint8_t2bytes(blue)
@@ -1015,11 +1028,14 @@ class Controller:
     def read_curve_type(self):
         """
         Read the current acceleration or deceleration curve 'curve_type'.
-        typedef enum curveType =
-        {
-            CURVE_TYPE_NONE = 0, // Turn off Motion control
-            CURVE_TYPE_TRAPEZOID = 1, // Turn on Motion control with trapezoidal curve
-        }
+
+        ::
+
+            typedef enum curveType =
+            {
+                CURVE_TYPE_NONE = 0, // Turn off Motion control
+                CURVE_TYPE_TRAPEZOID = 1, // Turn on Motion control with trapezoidal curve
+            }
         """
         return self._read_setting_value(0x05)
 
@@ -1149,9 +1165,3 @@ class Controller:
         pass
     def _read_motion_value(self):#dummy
         pass
-
-    def read_gpio_status(self):
-        """
-        Read the GPIO status of the motor.
-        """
-        return self._read_setting_value(0xCC)

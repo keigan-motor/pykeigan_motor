@@ -7,6 +7,7 @@ Created on Thr Jan 10 09:13:24 2018
 """
 
 
+import argparse
 import sys
 import os
 import pathlib
@@ -17,35 +18,50 @@ current_dir = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(current_dir) + '/../') # give 1st priority to the directory where pykeigan exists
 
 from pykeigan import blecontroller
+from ble_select import select_motor, connect_motor
 
 """
 ----------------------
 モーターに接続し、各種情報の取得
 ----------------------
+    $python3 ble-get-motor-Informations.py [MACアドレス]   (省略時はスキャン。参照 ble-simple-connection.py)
 """
+parser = argparse.ArgumentParser(description="BLE モーター情報の取得")
+parser.add_argument('address', metavar='ADDRESS', nargs='?', help='モーターのMACアドレス (省略時はスキャン)')
+args = parser.parse_args()
+
+if os.name == 'nt':
+    os.system('')  # Windows のコンソールでエスケープシーケンスを有効にする
+
+running = True
+
+def show(row, label, read):
+    # 読み出しに失敗しても (一時的な電波の悪化など) 表示を止めずに次の周期で再試行する
+    try:
+        text = '{} {} '.format(label, read())
+    except Exception as e:
+        text = '{} (read failed: {!r}) '.format(label, e)
+    print("\033[{};2H\033[2K".format(row))
+    sys.stdout.flush()
+    print(text)
+    sys.stdout.flush()
 
 def get_motor_informations():
-    while True:
+    while running:
         if dev:
-            print("\033[3;2H\033[2K")
-            sys.stdout.flush()
-            print('status {} '.format(dev.read_status()))
-            sys.stdout.flush()
-
-            print("\033[8;2H\033[2K")
-            sys.stdout.flush()
-            print('measurement {} '.format(dev.read_motor_measurement()))
-            sys.stdout.flush()
-
-            print("\033[12;2H\033[2K")
-            sys.stdout.flush()
-            print('imu_measurement {} '.format(dev.read_imu_measurement()))
-            sys.stdout.flush()
+            show(3, 'status', dev.read_status)
+            show(8, 'measurement', dev.read_motor_measurement)
+            show(12, 'imu_measurement', dev.read_imu_measurement)
         sleep(0.5)
 
 #接続
-dev=blecontroller.BLEController("d1:5a:fa:a7:d9:5d")#モーターのMACアドレス 参照 ble-simple-connection.py
+address = args.address or select_motor()  # 省略時はスキャンして選択 (1台なら自動)
+if address is None:
+    sys.exit()
+
+dev=connect_motor(address)
 dev.set_led(2,255,255,0)
+dev.enable_continual_motor_measurement()
 dev.enable_continual_imu_measurement()#IMUは通知をOnにする必要がある
 sleep(0.5)
 
@@ -57,7 +73,7 @@ res = executor.submit(get_motor_informations)
 """
 Exit with key input
 """
-os.system('clear')
+os.system('cls' if os.name == 'nt' else 'clear')
 for i in range(20):
     print("　　　　　　　")
 print("\033[17;2H")
@@ -65,16 +81,13 @@ print("---------------------------------------")
 print("\033[3;2H\033[2K")
 sys.stdout.flush()
 sleep(0.5)
-while True:
-    print("\033[18;2H")
-    sys.stdout.flush()
-    print("---------------------------------------")
-    if sys.version_info<(3,0):
-        inp = raw_input('Exit:[key input] >>')
-    else:
-        inp = input('Exit:[key input] >>')
-    if inp !=None:
-        dev.set_led(1, 100, 100, 100)
-        dev.disable_continual_imu_measurement()
-        dev.disconnect()
-        break
+print("\033[18;2H")
+sys.stdout.flush()
+print("---------------------------------------")
+input('Exit:[key input] >>')
+running = False
+res.result()
+dev.set_led(1, 100, 100, 100)
+dev.disable_continual_motor_measurement()
+dev.disable_continual_imu_measurement()
+dev.disconnect()

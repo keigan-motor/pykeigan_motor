@@ -1,7 +1,7 @@
-dist: xenial   # required for Python >= 3.7
+dist: jammy
 language: python
 python:
-  - "3.7"
+  - "3.10"
 install:
   - pip install -r requirements.txt -r devel-requirements.txt
 script:
