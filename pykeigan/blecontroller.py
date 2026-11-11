@@ -24,7 +24,9 @@ import threading
 import time
 import weakref
 
-from bleak import BleakClient, BleakScanner
+from pykeigan._deps import require_bleak
+require_bleak()
+from bleak import BleakClient, BleakScanner  # noqa: E402
 
 from pykeigan import controller as base
 from pykeigan.utils import *

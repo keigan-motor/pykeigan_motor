@@ -5,21 +5,14 @@ so that a plain 'pip install pykeigan-motor' (without the [mcp] extra) gets a cl
 """
 import sys
 
-INSTALL_MESSAGE = """\
-pykeigan-mcp needs the MCP SDK (mcp >= 2, Python >= 3.10), which is not installed.
-Install it with:
-
-    pip install pykeigan-motor[mcp]        (BLE too: pip install pykeigan-motor[mcp,ble])
-"""
+from pykeigan._deps import MissingDependencyError, require_mcp
 
 
 def main(argv=None):
-    if sys.version_info < (3, 10):
-        sys.exit('pykeigan-mcp requires Python 3.10 or later (this is Python {}.{}).'.format(*sys.version_info[:2]))
     try:
-        import mcp.server.mcpserver  # noqa: F401  (mcp >= 2)
-    except ImportError:
-        sys.exit(INSTALL_MESSAGE)
+        require_mcp()
+    except MissingDependencyError as e:
+        sys.exit(str(e))
     from pykeigan import mcp_server
     mcp_server.main(argv)
 

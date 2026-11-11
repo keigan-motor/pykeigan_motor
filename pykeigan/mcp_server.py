@@ -22,7 +22,9 @@ import threading
 import time
 from typing import Literal
 
-from mcp.server.mcpserver import MCPServer
+from pykeigan._deps import MissingDependencyError, require_mcp, require_pyserial
+require_mcp()
+from mcp.server.mcpserver import MCPServer  # noqa: E402
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
@@ -197,6 +199,10 @@ def create_server(session):
         KeiganMotor uses an FTDI USB-serial chip: vid 0403 ('likely_keigan_motor': true). Bluetooth ports are not motors.
         If no port is a likely KeiganMotor, the Motor is not visible to the OS: this is usually a USB hardware
         problem (USB hub, charge-only or damaged cable, Motor power), tell the user to connect directly with another cable."""
+        try:
+            require_pyserial()
+        except MissingDependencyError as e:
+            raise ToolError(str(e)) from None
         from serial.tools import list_ports
         ports = []
         for p in list_ports.comports():
@@ -211,8 +217,8 @@ def create_server(session):
         """Scan KeiganMotors nearby over BLE. Returns name, address and rssi (dBm), strongest first."""
         try:
             from pykeigan import blecontroller
-        except ImportError as e:
-            raise ToolError('BLE is not installed: pip install pykeigan_motor[ble]') from e
+        except MissingDependencyError as e:
+            raise ToolError(str(e)) from None
         return blecontroller.scan(timeout=timeout_s)
 
     @server.tool(annotations=_SAFE_ACTION)

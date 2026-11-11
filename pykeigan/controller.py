@@ -9,7 +9,7 @@ Units: position [rad], speed / velocity [rad/sec], torque [N.m] (see pykeigan.ut
 """
 # Created on Thu Jan 10 09:13:24 2018
 # Authors: Tomohiro Takata, Hiroshi Harada (Keigan Inc.)
-import serial,struct,threading,atexit,time
+import struct,threading,atexit,time
 from pykeigan.utils import *
 from pykeigan import errors
 

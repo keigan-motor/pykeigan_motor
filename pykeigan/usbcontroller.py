@@ -9,7 +9,9 @@ Callbacks (on_motor_measurement_value_cb etc.) are called from that thread.
 # Created on Thu Jan 10 09:13:24 2018
 # Authors: Tomohiro Takata, Hiroshi Harada, Takashi Tokuda (Keigan Inc.)
 from pykeigan import controller as base
-import os, serial, struct, threading, atexit, time
+import os, struct, threading, atexit, time
+from pykeigan._deps import require_pyserial
+serial = require_pyserial()
 from pykeigan.utils import *
 
 KEIGAN_USB_VID = 0x0403  # KeiganMotor uses an FTDI USB-serial chip (FT230X)

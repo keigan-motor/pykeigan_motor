@@ -17,9 +17,7 @@ import contextlib
 import io
 import sys
 
-import serial
-
-from pykeigan.usbcontroller import (KEIGAN_USB_VID, HARDWARE_HINT, USBController, _same_port,
+from pykeigan.usbcontroller import (serial, KEIGAN_USB_VID, HARDWARE_HINT, USBController, _same_port,
                                     diagnose_port, find_keigan_ports)
 
 
