@@ -11,6 +11,7 @@ Units: position [rad], speed / velocity [rad/sec], torque [N.m] (see pykeigan.ut
 # Authors: Tomohiro Takata, Hiroshi Harada (Keigan Inc.)
 import serial,struct,threading,atexit,time
 from pykeigan.utils import *
+from pykeigan import errors
 
 class Controller:
     """
@@ -18,6 +19,12 @@ class Controller:
 
     Most methods take an optional 'identifier' (2 bytes) attached to the command.
     Usually it is not needed.
+
+    The commands do not return the result. The Motor notifies it as a log:
+    on_motor_log_cb(log) is called for every log, on_motor_error_cb(log) only for errors, and
+    'last_error' keeps the last error log (None if none). See pykeigan.errors for the keys of 'log',
+    the error codes, their causes and remedies (errors.describe(log) makes a readable message).
+    With debug_mode=True, the logs are printed (with the cause and the remedy for errors).
     """
     def __init__(self):
         pass
@@ -27,7 +34,7 @@ class Controller:
     @property
     def flash_memory_states(self):
         """Names of the flash memory states ('flash_memory_state' of read_status())."""
-        return {0:"FLASH_STATE_READY",1:"FLASH_STATE_TEACHING_PREPARE",2:"FLASH_STATE_TEACHING_DOING",3:"FLASH_STATE_PLAYBACK_PREPARE",4:"FLASH_STATE_PLAYBACK_DOING",5:"FLASH_STATE_PLAYBACK_PAUSING",6:"FLASH_STATE_TASKSET_RECORDING",7:"FLASH_STATE_TASKSET_DOING",8:"FLASH_STATE_TASKSET_PAUSING",20:"FLASH_STATE_IMU"}
+        return {0:"FLASH_STATE_READY",1:"FLASH_STATE_TEACHING_PREPARE",2:"FLASH_STATE_TEACHING_DOING",3:"FLASH_STATE_PLAYBACK_PREPARE",4:"FLASH_STATE_PLAYBACK_DOING",5:"FLASH_STATE_PLAYBACK_PAUSING",6:"FLASH_STATE_TASKSET_RECORDING",7:"FLASH_STATE_TASKSET_DOING",8:"FLASH_STATE_TASKSET_PAUSING",10:"FLASH_STATE_ERASING",20:"FLASH_STATE_IMU",30:"FLASH_STATE_READING"}
 
     @property
     def motor_control_modes(self):
@@ -41,25 +48,12 @@ class Controller:
 
     @property
     def error_codes(self):
-        """Names of the error codes in the log notifications (on_motor_log_cb)."""
-        return {
-                0x00:"KM_SUCCESS",
-                0x03:"KM_ERROR_NOT_FOUND",
-                0x05:"KM_ERROR_INVALID_COMMAND",
-                0x06:"KM_ERROR_INVALID_PARAM",
-                0x07:"KM_ERROR_STORAGE_FULL",
-                0x08:"KM_ERROR_INVALID_FLASH_STATE", 
-                0x09:"KM_ERROR_INVALID_LENGTH",
-                0x0A:"KM_ERROR_INVALID_CHECKSUM",
-                0x0F:"KM_ERROR_FORBIDDEN",
-                0x10:"KM_ERROR_INVALID_ADDR",
-                0x14:"KM_ERROR_MOTOR_DISABLED",
-                0x46:"KM_ERROR_NRF_DEVICE", 
-                0x50:"KM_ERROR_WDT_EVENT",
-                0x51:"KM_ERROR_OVER_HEAT",
-                0x64:"KM_SUCCESS_ARRIVAL"
-                }
-    
+        """
+        Names of the error codes in the log notifications (on_motor_log_cb), keyed by the code number.
+        pykeigan.errors has the causes and the remedies (errors.describe(log)).
+        """
+        return {code: e.name for code, e in errors.ERRORS.items()}
+
     @property
     def command_names(self):
         """Method names of the commands in the log notifications (on_motor_log_cb), keyed by the command number."""
@@ -1178,6 +1172,22 @@ class Controller:
         """
         return self._read_setting_value(0x3C) 
 
+
+    def _handle_log(self, payload):
+        """
+        Handle a log notification (datatype 0xBE) and call the callbacks. Common to USB and BLE.
+        'payload' starts at the identifier: identifier(2) command(1) error_code(4) info(4).
+        """
+        log = errors.parse_log(payload, self.command_names)
+        if errors.is_error(log['error_codes']):
+            self.last_error = log
+            if callable(getattr(self, 'on_motor_error_cb', None)):
+                self.on_motor_error_cb(log)
+        if callable(getattr(self, 'on_motor_log_cb', None)):
+            self.on_motor_log_cb(log)
+        if getattr(self, 'DebugMode', False):
+            print(errors.describe(log, verbose=errors.is_error(log['error_codes'])))
+        return log
 
     def _read_setting_value(self, comm):#dummy
         pass

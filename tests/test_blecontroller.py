@@ -138,7 +138,8 @@ def test_command_log_and_event():
     c.on_motor_log_cb = logs.append
     c.on_motor_event_cb = events.append
     c._on_rx(None, b'\xBE\x00\x00\x51' + uint32_t2bytes(0) + CRC)
-    assert logs == [{'command_names': 0x51, 'error_codes': 0}]
+    assert len(logs) == 1 and logs[0]['command_names'] == 0x51 and logs[0]['error_codes'] == 0
+    assert logs[0]['command_name'] == 'enable_action' and logs[0]['error_name'] == 'KM_SUCCESS'
     c._on_rx(None, b'\xCE\x01\x02\x03' + CRC)
     assert events and events[0]['number'] == 2 and events[0]['state'] == 3
 
@@ -260,3 +261,17 @@ def test_decode():
     text = u'チャネル : 6'
     assert ble._decode(text.encode('utf-8')) == text
     assert isinstance(ble._decode(text.encode('cp932')), str)  # never raises
+
+
+def test_error_log_with_info():
+    c = make_controller()
+    logs, errs = [], []
+    c.on_motor_log_cb = logs.append
+    c.on_motor_error_cb = errs.append
+    # run_forward during playback: KM_ERROR_INVALID_FLASH_STATE, info = flash state 4 (PLAYBACK_DOING)
+    c._on_rx(None, b'\xBE\x00\x07\x60' + uint32_t2bytes(8) + uint32_t2bytes(4) + CRC)
+    assert len(logs) == 1 and errs == logs
+    assert errs[0]['identifier'] == 7 and errs[0]['info'] == 4
+    assert c.last_error == errs[0]
+    c._on_rx(None, b'\xBE\x00\x00\x51' + uint32_t2bytes(0) + uint32_t2bytes(0) + CRC)
+    assert len(logs) == 2 and len(errs) == 1  # success is not an error

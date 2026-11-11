@@ -394,6 +394,8 @@ class BLEController(base.Controller):
         self.on_motor_imu_measurement_cb = False
         self.on_motor_connection_error_cb = False
         self.on_motor_log_cb = False
+        self.on_motor_error_cb = False
+        self.last_error = None
         self.on_motor_event_cb = False
 
         self._link = {'connect_attempts': None, 'disconnects': 0, 'connected_time': None}
@@ -733,13 +735,7 @@ class BLEController(base.Controller):
             if datatype == 0x40:  # register value
                 self.__parse_register(payload)
             elif datatype == 0xBE:  # command log
-                cmd = bytes2uint8_t(payload[2:3])
-                err_code = bytes2uint32_t(payload[3:7])
-                log = {'command_names': cmd, 'error_codes': err_code}
-                if callable(self.on_motor_log_cb):
-                    self.on_motor_log_cb(log)
-                if self.DebugMode:
-                    print(self.command_names.get(cmd, hex(cmd)), self.error_codes.get(err_code, err_code))
+                self._handle_log(payload)
             elif datatype == 0xCE:  # event (button etc.)
                 event = {'event_type': self.event_types[bytes2uint8_t(payload[0:1])],
                          'number': bytes2uint8_t(payload[1:2]), 'state': bytes2uint8_t(payload[2:3])}

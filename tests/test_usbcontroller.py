@@ -139,7 +139,9 @@ def test_log_callback_gets_unknown_codes():
     c.on_motor_log_cb = logs.append
     body = b'\xBE\x00\x00\xFE' + b'\x00\x00\x12\x34'  # unknown command 0xFE, unknown error code
     assert parse(c, bytes([len(body) + 1]) + body)
-    assert logs == [{'command_names': 0xFE, 'error_codes': 0x1234}]
+    assert len(logs) == 1 and logs[0]['command_names'] == 0xFE and logs[0]['error_codes'] == 0x1234
+    assert logs[0]['info'] is None  # short frame without info
+    assert c.last_error == logs[0]
 
 
 def test_measurement_too_old_message():

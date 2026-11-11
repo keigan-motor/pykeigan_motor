@@ -249,6 +249,15 @@ If the Motor is not found by scanning:
 
 Release Notes
 ------------------
+Unreleased
+
+- Errors: new ``pykeigan.errors`` with the causes, remedies and the meaning of the info value of all the firmware error codes.
+  ``errors.describe(log)`` makes a readable message. See "Errors and Troubleshooting" in the documentation.
+- Errors: ``on_motor_error_cb`` (called only for errors) and ``last_error`` (USB / BLE).
+  The log has ``identifier``, ``info``, ``command_name`` and ``error_name`` in addition to ``command_names`` and ``error_codes``.
+  With ``debug_mode=True`` the cause and the remedy of errors are printed.
+- ``flash_memory_states``: added ``FLASH_STATE_ERASING`` (10) and ``FLASH_STATE_READING`` (30) (``read_status()`` raised ``KeyError`` while erasing / reading).
+
 Release 2.5.0
 
 - BLE: replaced bluepy with bleak. BLE now works on Windows and Linux (including Raspberry Pi 4/5) without sudo. python >= 3.8 is required for BLE.

@@ -47,6 +47,8 @@ class USBController(base.Controller):
         self.on_motor_reconnection_cb = False
         self.on_read_motion_read_comp_cb = False
         self.on_motor_log_cb = False
+        self.on_motor_error_cb = False
+        self.last_error = None
         self.on_motor_event_cb = False
         self.is_check_sum_enabled = False
         self.auto_serial_reading=False
@@ -358,15 +360,8 @@ class USBController(base.Controller):
             else:
                 return False
         elif datatype == 0xBE:  # command log (Error or Success information)
-            #print(payload)
-            cmd = bytes2uint8_t(payload[2:3])
-            err_code = bytes2uint32_t(payload[3:7])
-            # unknown commands / error codes (e.g. newer firmware) are also passed to the callback
-            self.__motor_log_value={'command_names':cmd,'error_codes':err_code}
-            if (callable(self.on_motor_log_cb)):
-                self.on_motor_log_cb(self.__motor_log_value)
-            if self.DebugMode:
-                print(self.command_names.get(cmd, hex(cmd)), self.error_codes.get(err_code, err_code))
+            # unknown commands / error codes (e.g. newer firmware) are also passed to the callbacks
+            self.__motor_log_value = self._handle_log(payload)
             return True
         elif datatype == 0xB7: #Position coordinates of "readMotion" (Motor firmware ver>=2.0)
             motion_index=bytes2uint16_t(payload[0:2])
