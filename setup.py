@@ -19,7 +19,13 @@ setup(
     long_description=readme,
     long_description_content_type='text/x-rst',
     install_requires=['pyserial'],
-    extras_require={'ble' : ['bleak>=0.22']},
+    extras_require={
+        'ble' : ['bleak>=0.22'],
+        'mcp' : ['mcp>=2,<3; python_version>="3.10"'],  # MCP server (pykeigan-mcp). Python >= 3.10
+    },
+    entry_points={
+        'console_scripts': ['pykeigan-mcp = pykeigan.mcp_server:main'],
+    },
     author='Tomohiro Takata, Hiroshi Harada, Takashi Tokuda',
     author_email='takata@innovotion.co.jp, harada@keigan.co.jp, tokuda@keigan.co.jp',
     url='https://github.com/keigan-motor/pykeigan_motor',
