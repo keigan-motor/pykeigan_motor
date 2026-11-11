@@ -9,8 +9,60 @@ Callbacks (on_motor_measurement_value_cb etc.) are called from that thread.
 # Created on Thu Jan 10 09:13:24 2018
 # Authors: Tomohiro Takata, Hiroshi Harada, Takashi Tokuda (Keigan Inc.)
 from pykeigan import controller as base
-import serial, struct, threading, atexit, time
+import os, serial, struct, threading, atexit, time
 from pykeigan.utils import *
+
+KEIGAN_USB_VID = 0x0403  # KeiganMotor uses an FTDI USB-serial chip (FT230X)
+
+HARDWARE_HINT = ('  -> This is usually a USB hardware path problem, not a software one:\n'
+                 '     * connect the Motor directly to the PC (remove USB hubs / extension cables)\n'
+                 '     * try another USB cable (some cables are charge-only, or damaged)\n'
+                 '     * check the power supply of the Motor\n'
+                 '     * try another USB port of the PC')
+
+
+def find_keigan_ports():
+    """
+    Return the serial ports that look like a KeiganMotor (FTDI chip, VID 0403),
+    as a list of serial.tools.list_ports ListPortInfo.
+    """
+    try:
+        from serial.tools import list_ports
+        return [p for p in list_ports.comports() if p.vid == KEIGAN_USB_VID]
+    except Exception:
+        return []
+
+
+def _same_port(a, b):
+    if os.name == 'nt':
+        return a.upper() == b.upper()
+    return os.path.realpath(a) == os.path.realpath(b)
+
+
+def diagnose_port(port, exc=None):
+    """
+    Explain why the serial port 'port' cannot be used (exc: the exception raised when opening it).
+    Distinguishes "no KeiganMotor visible to the OS" (USB hub / cable / power problem),
+    "wrong port name", and "port in use / permission denied".
+    Returns a message (str).
+    """
+    ftdi = find_keigan_ports()
+    err = '' if exc is None else ' ({})'.format(exc)
+    if not ftdi:
+        return ('Cannot open {}{}.\n'
+                'No KeiganMotor USB device (FTDI, VID 0403) is visible to the OS.\n{}'
+                .format(port, err, HARDWARE_HINT))
+    candidates = ', '.join('{} (SN {})'.format(p.device, p.serial_number) for p in ftdi)
+    if not any(_same_port(port, p.device) for p in ftdi):
+        return ('Cannot open {}{}.\n'
+                'This port is not a KeiganMotor. KeiganMotor port(s) found: {}'.format(port, err, candidates))
+    msg = str(exc).lower()
+    if isinstance(exc, PermissionError) or 'denied' in msg or 'busy' in msg or 'permission' in msg:
+        return ('Cannot open {}{}.\n'
+                'The KeiganMotor is visible, but the port is used by another program '
+                '(another script, KeiganMotor App, serial terminal...) or not permitted '
+                '(Linux: add the user to the "dialout" group).'.format(port, err))
+    return 'Cannot open {}{}. (KeiganMotor port(s) visible to the OS: {})'.format(port, err, candidates)
 
 
 class USBController(base.Controller):
@@ -70,15 +122,37 @@ class USBController(base.Controller):
 
     def __init_serial(self, port, baud, open_timeout=None):
         deadline = None if open_timeout is None else time.time() + open_timeout
+        last_msg = None
         while True:
             try:
                 return serial.Serial(port, baud, 8, 'N', 1, None, False, True, write_timeout=0.1)
             except Exception as e:
+                msg = diagnose_port(port, e)
                 if deadline is not None and time.time() + 3 > deadline:
-                    raise ConnectionError('Could not open the serial port {}: {}'.format(port, e)) from e
-                print('Error occured while trying to connect to serial port {}: {}'.format(port, e))
-                print('Please recheck you USB connection. attemping to reinit... ')
+                    raise ConnectionError(msg) from e
+                if msg != last_msg:  # print the diagnosis only when the situation changes
+                    print(msg)
+                    last_msg = msg
+                print('Retrying to open {} in 3 sec...'.format(port))
                 time.sleep(3)
+
+    # USB disconnections within this window [sec] that trigger the "unstable connection" warning
+    UNSTABLE_WINDOW = 60
+    UNSTABLE_COUNT = 3
+
+    def _on_usb_lost(self):
+        """Called when the USB connection is lost: explain the cause, warn if it happens repeatedly."""
+        now = time.time()
+        times = [t for t in getattr(self, '_usb_lost_times', []) if now - t < self.UNSTABLE_WINDOW] + [now]
+        self._usb_lost_times = times
+        if not any(_same_port(self.port, p.device) for p in find_keigan_ports()):
+            print('USB connection lost: the KeiganMotor {} disappeared from the OS '
+                  '(unplugged, power loss, or USB cable / hub problem).'.format(self.port))
+        else:
+            print('USB connection lost on {} (the device is still visible to the OS).'.format(self.port))
+        if len(times) >= self.UNSTABLE_COUNT:
+            print('WARNING: the USB connection was lost {} times within {} sec. The connection is unstable.\n{}'
+                  .format(len(times), self.UNSTABLE_WINDOW, HARDWARE_HINT))
 
     def is_connected(self):
         """
@@ -120,6 +194,8 @@ class USBController(base.Controller):
         self.disconnect(self.shouldReconnect)
         self.reconn_err_cnt=0
         self.try_reconnect = True
+        self._on_usb_lost()
+        last_msg = None
 
         while True:
             self.reconn_err_cnt += 1
@@ -129,8 +205,10 @@ class USBController(base.Controller):
                 self.serial.open()
                 self.set_interface(self.interface_type['USB'] + self.interface_type['BTN'])
             except Exception as e:
-                # print(e)
-                pass
+                msg = diagnose_port(self.port, e)
+                if msg != last_msg:  # print the diagnosis only when the situation changes
+                    print(msg)
+                    last_msg = msg
             time.sleep(1)
             try:
                 #self.connect()

@@ -158,3 +158,73 @@ def test_open_timeout_raises():
     with pytest.raises(ConnectionError):
         USBController('NO_SUCH_PORT_FOR_TEST', open_timeout=0)
     assert time.time() - t < 2
+
+
+class _Port:
+    def __init__(self, device, vid=0x0403, sn='DM00TEST'):
+        self.device, self.vid, self.serial_number = device, vid, sn
+        self.pid, self.description = None, 'test port'
+
+
+def _fake_ports(monkeypatch, ports):
+    from serial.tools import list_ports
+    monkeypatch.setattr(list_ports, 'comports', lambda: ports)
+
+
+def test_diagnose_no_device_visible(monkeypatch):
+    from pykeigan.usbcontroller import diagnose_port
+    _fake_ports(monkeypatch, [_Port('COM1', vid=None)])  # only a non-FTDI port
+    msg = diagnose_port('COM3', OSError('not found'))
+    assert 'No KeiganMotor USB device' in msg and 'USB hub' in msg
+
+
+def test_diagnose_wrong_port_lists_candidates(monkeypatch):
+    from pykeigan.usbcontroller import diagnose_port
+    _fake_ports(monkeypatch, [_Port('COM5')])
+    msg = diagnose_port('COM3', OSError('not found'))
+    assert 'not a KeiganMotor' in msg and 'COM5' in msg and 'DM00TEST' in msg
+
+
+def test_diagnose_port_in_use(monkeypatch):
+    from pykeigan.usbcontroller import diagnose_port
+    _fake_ports(monkeypatch, [_Port('COM5')])
+    msg = diagnose_port('com5', serial_exc('Access is denied.'))
+    assert 'another program' in msg
+
+
+def serial_exc(text):
+    import serial
+    return serial.SerialException(text)
+
+
+def test_open_timeout_message_has_diagnosis(monkeypatch):
+    _fake_ports(monkeypatch, [])
+    with pytest.raises(ConnectionError, match='No KeiganMotor USB device'):
+        USBController('NO_SUCH_PORT_FOR_TEST', open_timeout=0)
+
+
+def test_unstable_connection_warning(monkeypatch, capsys):
+    _fake_ports(monkeypatch, [])
+    c = USBController.__new__(USBController)
+    c.port = 'COM5'
+    for _ in range(2):
+        c._on_usb_lost()
+    assert 'disappeared from the OS' in capsys.readouterr().out
+    c._on_usb_lost()
+    assert 'unstable' in capsys.readouterr().out
+
+
+def test_usbcheck_no_device(monkeypatch):
+    from pykeigan import usbcheck
+    _fake_ports(monkeypatch, [_Port('COM1', vid=None)])
+    lines = []
+    assert usbcheck.check(out=lines.append) is False
+    assert any('No KeiganMotor USB device' in l for l in lines)
+
+
+def test_usbcheck_open_failure(monkeypatch):
+    from pykeigan import usbcheck
+    _fake_ports(monkeypatch, [])
+    lines = []
+    assert usbcheck.check('NO_SUCH_PORT_FOR_TEST', out=lines.append) is False
+    assert any('[2/3]' in l and 'NG' in l for l in lines)

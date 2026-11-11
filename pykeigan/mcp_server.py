@@ -194,7 +194,9 @@ def create_server(session):
     @server.tool(annotations=_READ_ONLY)
     def list_serial_ports() -> list[dict]:
         """List serial ports (USB connection candidates).
-        KeiganMotor uses an FTDI USB-serial chip: vid 0403 ('likely_keigan_motor': true). Bluetooth ports are not motors."""
+        KeiganMotor uses an FTDI USB-serial chip: vid 0403 ('likely_keigan_motor': true). Bluetooth ports are not motors.
+        If no port is a likely KeiganMotor, the Motor is not visible to the OS: this is usually a USB hardware
+        problem (USB hub, charge-only or damaged cable, Motor power), tell the user to connect directly with another cable."""
         from serial.tools import list_ports
         ports = []
         for p in list_ports.comports():

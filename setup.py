@@ -24,7 +24,8 @@ setup(
         'mcp' : ['mcp>=2,<3; python_version>="3.10"'],  # MCP server (pykeigan-mcp). Python >= 3.10
     },
     entry_points={
-        'console_scripts': ['pykeigan-mcp = pykeigan.mcp_cli:main'],
+        'console_scripts': ['pykeigan-mcp = pykeigan.mcp_cli:main',
+                            'pykeigan-usb-check = pykeigan.usbcheck:main'],
     },
     author='Tomohiro Takata, Hiroshi Harada, Takashi Tokuda',
     author_email='takata@innovotion.co.jp, harada@keigan.co.jp, tokuda@keigan.co.jp',
