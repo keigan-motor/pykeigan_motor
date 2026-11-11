@@ -1,4 +1,4 @@
-Python Library for Keigan Motor (v2)
+Python Library for Keigan Motor (v3)
 ==============================================
 
 Introduction
@@ -7,13 +7,11 @@ You can control your Keigan Motor through USB Serial and BLE.
 
 https://www.keigan-motor.com/
 
-**This library has been updated from v1 to more than v2.**
+**v3: BLE now uses bleak (Windows / Linux / Raspberry Pi, no sudo), detailed error information, and an MCP server for AI assistants.**
 
-**The method names are not comatible, but we added many important features.**
+**The method names are the same as v2. BLE has some incompatible changes (see Release 3.0.0).**
 
-**We strongly recommend more than v2 from now on.**
-
-**Just in case you can get v1 from: https://github.com/keigan-motor/pykeigan_motor/tree/v1**
+**The method names of v1 are not compatible. Just in case you can get v1 from: https://github.com/keigan-motor/pykeigan_motor/tree/v1**
 
 The BLE functions of this library depend on bleak (cross-platform Bluetooth Low Energy client), and work on Windows and Linux (including Raspberry Pi 4/5):
 
@@ -30,6 +28,7 @@ Requirements
   Raspberry Pi OS Bookworm (python 3.11) and Bullseye (python 3.9) are supported. Buster (python 3.7) is not supported for BLE.
 - pyserial >= 3.4
 - bleak >= 0.22 (BLE support. Windows 10+ / Linux with BlueZ >= 5.55)
+- mcp >= 2 (MCP server, optional. python >= 3.10): ``pip install pykeigan_motor[mcp]``
 
 **NOTE) This library runs on python 3.5 or later (BLE: python 3.8 or later).**  
 
@@ -249,17 +248,17 @@ If the Motor is not found by scanning:
 
 Release Notes
 ------------------
-Unreleased
+Release 3.0.0
 
+- MCP server: ``pykeigan-mcp`` lets AI assistants (Claude Code, Claude Desktop, etc.) control a Motor over USB or BLE.
+  ``pip install pykeigan_motor[mcp]`` (python >= 3.10), then e.g. ``claude mcp add keigan -- pykeigan-mcp --usb COM3``.
+  Units are degrees and rpm. Speeds / torques above ``--max-rpm`` (60) / ``--max-torque`` (0.3 N.m) are rejected.
 - Errors: new ``pykeigan.errors`` with the causes, remedies and the meaning of the info value of all the firmware error codes.
   ``errors.describe(log)`` makes a readable message. See "Errors and Troubleshooting" in the documentation.
 - Errors: ``on_motor_error_cb`` (called only for errors) and ``last_error`` (USB / BLE).
   The log has ``identifier``, ``info``, ``command_name`` and ``error_name`` in addition to ``command_names`` and ``error_codes``.
   With ``debug_mode=True`` the cause and the remedy of errors are printed.
 - ``flash_memory_states``: added ``FLASH_STATE_ERASING`` (10) and ``FLASH_STATE_READING`` (30) (``read_status()`` raised ``KeyError`` while erasing / reading).
-
-Release 2.5.0
-
 - BLE: replaced bluepy with bleak. BLE now works on Windows and Linux (including Raspberry Pi 4/5) without sudo. python >= 3.8 is required for BLE.
 - BLE: ``blecontroller.scan()``, connection retries (``BLEController(addr, timeout=10.0, retries=2)``), faster connection on Windows,
   ``DeviceNotFoundError``, notifications for measurement values / logs / events (callbacks same as USBController).
