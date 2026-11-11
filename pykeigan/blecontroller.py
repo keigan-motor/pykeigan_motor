@@ -16,6 +16,11 @@ methods from inside them.
 """
 import asyncio
 import atexit
+import collections
+import glob
+import re
+import statistics
+import subprocess
 import sys
 import threading
 import time
@@ -26,6 +31,10 @@ from pykeigan import controller as base
 from pykeigan.utils import *
 
 SERVICE_UUID = 'f140ea35-8936-4d35-a0ed-dfcd795baa8c'
+
+
+class DeviceNotFoundError(ConnectionError):
+    """The KeiganMotor was not found by scanning (not advertising, out of range, or connected to another device)."""
 
 
 def _uuid(n):
@@ -68,6 +77,18 @@ class _LoopThread(object):
 _shared_loop = None
 _shared_loop_lock = threading.Lock()
 _scanned_devices = {}  # address(upper) -> BLEDevice found by scan(); lets connect() skip rescanning
+_scanned_rssi = {}  # address(upper) -> (rssi, unix time) of the latest advertisement received
+_last_scan = {}  # {'advertisers': number of BLE devices (of any kind) seen, 'time': unix time} of the latest scan()
+
+# link quality thresholds used by BLEController.diagnose_link()
+RSSI_GOOD = -70  # dBm. weaker than this: 'fair'
+RSSI_POOR = -85  # dBm. weaker than this: 'poor'
+LATENCY_FAIR = 0.15  # sec (95th percentile of round trip time). longer than this: 'fair'
+LATENCY_POOR = 0.5  # sec. longer than this: 'poor'
+FAILURE_FAIR = 0.0  # ratio of failed requests. more than this: 'fair'
+FAILURE_POOR = 0.05  # more than this: 'poor'
+CROWDED_ADVERTISERS = 30  # number of BLE devices nearby regarded as a crowded 2.4GHz environment
+_LEVELS = ('good', 'fair', 'poor')
 
 
 def _get_loop():
@@ -88,13 +109,16 @@ def scan(timeout=5.0, on_found=None):
     It is called from a background thread.
     """
     found = {}  # address -> dict
+    advertisers = set()
 
     def _on_detect(d, adv):
+        advertisers.add(d.address)
         name = adv.local_name or d.name or ''
         uuids = [u.lower() for u in adv.service_uuids]
         if not (SERVICE_UUID in uuids or name.startswith('KM-1')):
             return
         _scanned_devices[d.address.upper()] = d
+        _record_rssi(d.address, adv.rssi)
         km = found.get(d.address)
         if km is None:
             km = found[d.address] = {'name': name, 'address': d.address, 'rssi': adv.rssi}
@@ -110,20 +134,107 @@ def scan(timeout=5.0, on_found=None):
     async def _scan():
         async with BleakScanner(detection_callback=_on_detect):
             await asyncio.sleep(timeout)
+        _last_scan.update(advertisers=len(advertisers), time=time.time())
         return sorted(found.values(), key=lambda x: -x['rssi'])
 
     t0 = time.time()
     return _get_loop().call(_scan(), timeout + 10.0)
 
 
+def _record_rssi(address, rssi):
+    if rssi is not None and rssi > -127:  # BlueZ reports -127 when the RSSI is unknown
+        _scanned_rssi[address.upper()] = rssi, time.time()
+
+
+async def _find_device(address, timeout):
+    """Scan for 'address' and record the RSSI of its advertisement. Returns BLEDevice or None."""
+    key = address.upper()
+
+    def _match(d, adv):
+        if d.address.upper() != key:
+            return False
+        _record_rssi(key, adv.rssi)
+        return True
+
+    return await BleakScanner.find_device_by_filter(_match, timeout=timeout)
+
+
+def _run(cmd, timeout=3.0):
+    try:
+        return subprocess.run(cmd, capture_output=True, timeout=timeout, check=False).stdout.decode('utf-8', 'replace')
+    except Exception:
+        return ''
+
+
+def _band(freq=None, channel=None):
+    if freq:
+        return '2.4GHz' if freq < 3000 else '5GHz' if freq < 5925 else '6GHz'
+    if channel:
+        return '2.4GHz' if channel <= 14 else '5GHz'
+    return None
+
+
+def check_wifi():
+    """
+    Check the Wi-Fi of this PC. 2.4GHz Wi-Fi interferes with BLE: both use the 2.4GHz band, and most PCs and
+    Raspberry Pi share one radio chip and antenna for Wi-Fi and Bluetooth.
+    Returns a list of dict {'interface', 'channel', 'band'} of the Wi-Fi interfaces in use
+    ('channel' / 'band' ('2.4GHz', '5GHz', '6GHz') are None if unknown).
+    Returns an empty list if Wi-Fi is not used (turned off / not connected). Linux and Windows only.
+    """
+    result = []
+    if sys.platform.startswith('linux'):
+        for path in sorted(glob.glob('/sys/class/net/*/wireless')):
+            iface = path.split('/')[-2]
+            try:
+                with open('/sys/class/net/{}/operstate'.format(iface)) as f:
+                    if f.read().strip() != 'up':
+                        continue  # turned off (nmcli radio wifi off / rfkill) or not connected
+            except OSError:
+                continue
+            ch = freq = None
+            m = re.search(r'^\*:(\d+):(\d+)', _run(['nmcli', '-t', '-f', 'IN-USE,CHAN,FREQ', 'dev', 'wifi', 'list',
+                                                    'ifname', iface, '--rescan', 'no']), re.M)
+            if m:
+                ch, freq = int(m.group(1)), float(m.group(2))
+            else:
+                m = re.search(r'freq:\s*([\d.]+)', _run(['iw', 'dev', iface, 'link']))
+                freq = float(m.group(1)) if m else None
+            result.append({'interface': iface, 'channel': ch, 'band': _band(freq=freq)})
+    elif sys.platform == 'win32':
+        # the output of netsh is localized (English / Japanese supported). 'Channel' appears only while connected.
+        out = _run(['netsh', 'wlan', 'show', 'interfaces'])
+        for block in re.split(r'^\s*(?=(?:Name|名前)\s*:)', out, flags=re.M)[1:]:
+            name = re.match(r'(?:Name|名前)\s*:\s*(.+)', block)
+            m = re.search(r'(?:Channel|チャネル)\s*:\s*(\d+)', block)
+            if m:
+                ch = int(m.group(1))
+                result.append({'interface': name.group(1).strip(), 'channel': ch, 'band': _band(channel=ch)})
+    return result
+
+
+def _percentile(values, p):
+    values = sorted(values)
+    return values[min(len(values) - 1, int(round(p * (len(values) - 1))))]
+
+
+def _worse(a, b):
+    return a if _LEVELS.index(a) >= _LEVELS.index(b) else b
+
+
 class BLEController(base.Controller):
-    def __init__(self, addr, debug_mode=False, timeout=10.0):
+    def __init__(self, addr, debug_mode=False, timeout=10.0, retries=2):
         """
         Connect to the KeiganMotor at 'addr'.
         'addr' is the MAC address (Windows / Linux) or the device UUID (macOS).
+        'timeout' is the time limit [sec] of each scan / connection attempt.
+        'retries' is the number of additional connection attempts when connecting fails
+        (BLE connections sometimes fail to be established, e.g. Raspberry Pi with 2.4GHz Wi-Fi).
+        Raises DeviceNotFoundError if the Motor is not found, ConnectionError if connecting fails.
         """
         self.address = addr
         self.timeout = timeout
+        self.retries = max(0, int(retries))
         self.DebugMode = debug_mode
         self.setting_values = {}
         self._setting_events = {}
@@ -136,6 +247,8 @@ class BLEController(base.Controller):
         self.on_motor_log_cb = False
         self.on_motor_event_cb = False
 
+        self._link = {'connect_attempts': None, 'disconnects': 0, 'connected_time': None}
+        self._requests = collections.deque(maxlen=200)  # (unix time, round trip time [sec] or None if failed)
         self._client = None
         self._write_lock = None
         self._closing = False
@@ -151,46 +264,76 @@ class BLEController(base.Controller):
         """
         Establish the BLE connection.
         """
-        self._worker.call(self._connect(), self.timeout + 10.0)
+        # each attempt may take up to 'timeout' for scanning and 'timeout' for connecting
+        attempts = self.retries + 1
+        self._worker.call(self._connect(), attempts * (2 * self.timeout + 5.0) + 10.0)
 
     async def _connect(self):
         self._write_lock = asyncio.Lock()
         self._closing = False
-        # 1. device found by scan() just before: fastest
-        cached = _scanned_devices.pop(self.address.upper(), None)
-        if cached is not None:
+        attempts = self.retries + 1
+        last_error = None
+        # device found by scan() just before: fastest (no scanning needed)
+        device = _scanned_devices.pop(self.address.upper(), None)
+        for attempt in range(attempts):
+            if attempt:
+                await asyncio.sleep(0.5)
+            if device is None and sys.platform == 'win32':
+                # Windows: connect by address without scanning. Advertisements are received only every few
+                # seconds in a crowded environment, so scanning first often takes 5-10 sec or more.
+                # Fails immediately if Windows has never seen the device.
+                try:
+                    await self.__connect_device(self.address, direct=True)
+                    self._link['connect_attempts'] = attempt + 1
+                    return
+                except Exception:
+                    pass
+            if device is None or attempt:
+                # scan for the device. On a retry, the previous device may be stale (e.g. the Motor was
+                # rebooted): use the newly found one, or keep the previous one if not found this time.
+                found = await _find_device(self.address, self.timeout)
+                if found is not None:
+                    device = found
+                elif device is None:
+                    raise DeviceNotFoundError('KeiganMotor not found: {}'.format(self.address))
             try:
-                await self.__connect_device(cached)
+                await self.__connect_device(device)
+                self._link['connect_attempts'] = attempt + 1
                 return
-            except Exception:
-                pass  # stale (e.g. the motor was rebooted)
-        # 2. Windows: connect by address without scanning. Advertisements are received only every few
-        #    seconds in a crowded environment, so scanning first often takes 5-10 sec or more.
-        #    Fails immediately if Windows has never seen the device.
-        if sys.platform == 'win32':
-            try:
-                await self.__connect_device(self.address, direct=True)
-                return
-            except Exception:
-                pass
-        # 3. scan for the device, then connect
-        device = await BleakScanner.find_device_by_address(self.address, timeout=self.timeout)
-        if device is None:
-            raise ConnectionError('KeiganMotor not found: {}'.format(self.address))
-        await self.__connect_device(device)
+            except Exception as e:
+                last_error = e
+                if self.DebugMode:
+                    print('connect attempt {}/{} failed: {!r}'.format(attempt + 1, attempts, e))
+        raise ConnectionError('Failed to connect to KeiganMotor {} ({} attempts): {!r}'.format(
+            self.address, attempts, last_error)) from last_error
 
     async def __connect_device(self, device, direct=False):
         self._client = BleakClient(device, disconnected_callback=self._on_disconnected)
-        if direct:
-            # bleak (WinRT) scans only to get the 48-bit Bluetooth address; give it directly.
-            backend = getattr(self._client, '_backend', None)
-            if backend is None or not hasattr(backend, '_device_info'):
-                raise LookupError('direct connection is not supported by this bleak version')
-            backend._device_info = int(self.address.replace(':', ''), 16)
-        await self._client.connect(timeout=self.timeout)
-        await self._client.start_notify(CHAR_UUIDS['motor_measurement'], self._on_motor_measurement)
-        await self._client.start_notify(CHAR_UUIDS['motor_imu_measurement'], self._on_imu_measurement)
-        await self._client.start_notify(CHAR_UUIDS['motor_rx'], self._on_rx)
+        try:
+            if direct:
+                # bleak (WinRT) scans only to get the 48-bit Bluetooth address; give it directly.
+                backend = getattr(self._client, '_backend', None)
+                if backend is None or not hasattr(backend, '_device_info'):
+                    raise LookupError('direct connection is not supported by this bleak version')
+                backend._device_info = int(self.address.replace(':', ''), 16)
+            await self._client.connect(timeout=self.timeout)
+            await self._client.start_notify(CHAR_UUIDS['motor_measurement'], self._on_motor_measurement)
+            await self._client.start_notify(CHAR_UUIDS['motor_imu_measurement'], self._on_imu_measurement)
+            await self._client.start_notify(CHAR_UUIDS['motor_rx'], self._on_rx)
+            self._link.update(client=self._client, connected_time=time.time())
+        except BaseException:
+            await self.__discard_client()
+            raise
+
+    async def __discard_client(self):
+        """Disconnect and forget a client whose connection attempt failed (so it does not block the next attempt)."""
+        client, self._client = self._client, None
+        if client is None:
+            return
+        try:
+            await asyncio.wait_for(client.disconnect(), self.timeout)
+        except Exception:
+            pass
 
     def is_connected(self):
         return self._client is not None and self._client.is_connected
@@ -210,8 +353,141 @@ class BLEController(base.Controller):
             pass
 
     def _on_disconnected(self, client):
+        if client is not self._client:
+            return  # a client discarded after a failed connection attempt
+        if not self._closing and self._link.get('client') is client:
+            self._link['disconnects'] += 1  # only after the connection was established (not failed attempts)
         if not self._closing and callable(self.on_motor_connection_error_cb):
             self.on_motor_connection_error_cb(ConnectionError('BLE disconnected'))
+
+    # ------------------------------------------------------------
+    # link quality
+    # ------------------------------------------------------------
+    def link_stats(self, period=None):
+        """
+        Statistics of the requests (commands and reads) sent in normal use, to monitor the link quality
+        without extra communication. 'period' [sec]: only the requests in the last 'period' sec (default: last 200).
+        Returns dict {'requests', 'failures', 'failure_rate', 'latency_median', 'latency_p95', 'latency_max'
+        (round trip time [sec]; None if no successful request), 'connect_attempts', 'disconnects', 'rssi'}.
+        'rssi' [dBm] is that of the advertisement received before connecting (None if unknown).
+        BLE retransmits lost packets automatically, so interference usually appears as longer / irregular
+        latency rather than failures. Failures mean the link is very poor.
+        """
+        samples = list(self._requests)
+        if period is not None:
+            since = time.time() - period
+            samples = [x for x in samples if x[0] >= since]
+        latencies = [rtt for _, rtt in samples if rtt is not None]
+        failures = len(samples) - len(latencies)
+        rssi = _scanned_rssi.get(self.address.upper())
+        return {'requests': len(samples), 'failures': failures,
+                'failure_rate': failures / len(samples) if samples else 0.0,
+                'latency_median': statistics.median(latencies) if latencies else None,
+                'latency_p95': _percentile(latencies, 0.95) if latencies else None,
+                'latency_max': max(latencies) if latencies else None,
+                'connect_attempts': self._link['connect_attempts'], 'disconnects': self._link['disconnects'],
+                'rssi': rssi[0] if rssi else None}
+
+    def diagnose_link(self, count=30, scan_time=3.0):
+        """
+        Measure the BLE link quality and the radio environment, and judge whether BLE is usable.
+        Reads the measurement characteristic 'count' times (no effect on the Motor) to measure the response time,
+        and scans 'scan_time' [sec] to count BLE devices nearby (0: skip). Takes about 'scan_time' + 1-3 sec.
+        Returns dict: link_stats() of the probe requests, plus the following keys.
+
+        - 'level': 'good' / 'fair' (usable but unstable; improvement recommended) / 'poor' (hard to use)
+        - 'advertisers': number of BLE devices seen nearby (None if not scanned)
+        - 'wifi': check_wifi()
+        - 'advice': list of dict {'code', 'message'}. code: 'weak_signal', 'interference', 'wifi_2.4ghz',
+          'crowded', 'reconnected', 'disconnected'
+
+        Thresholds are the module constants RSSI_GOOD, RSSI_POOR, LATENCY_FAIR, LATENCY_POOR, FAILURE_FAIR,
+        FAILURE_POOR and CROWDED_ADVERTISERS.
+        """
+        advertisers = self._worker.call(self._count_advertisers(scan_time), scan_time + 10.0) if scan_time else None
+        probe = []  # round trip time [sec] or None if failed
+        for _ in range(count):
+            if not self.is_connected():
+                probe.append(None)
+                break
+            try:
+                self._read_char('motor_measurement', timeout=1.0)
+                probe.append(self._requests[-1][1])
+            except Exception:
+                probe.append(None)
+            time.sleep(0.02)
+        stats = self.link_stats()
+        # statistics of the probe requests only
+        latencies = [rtt for rtt in probe if rtt is not None]
+        stats.update(requests=len(probe), failures=len(probe) - len(latencies),
+                     failure_rate=(len(probe) - len(latencies)) / len(probe) if probe else 0.0,
+                     latency_median=statistics.median(latencies) if latencies else None,
+                     latency_p95=_percentile(latencies, 0.95) if latencies else None,
+                     latency_max=max(latencies) if latencies else None)
+        wifi = check_wifi()
+        stats.update(advertisers=advertisers, wifi=wifi)
+
+        level, advice = 'good', []
+
+        def add(lv, code, message):
+            nonlocal level
+            level = _worse(level, lv)
+            advice.append({'code': code, 'message': message})
+
+        if not self.is_connected():
+            add('poor', 'disconnected', 'The connection was lost during the measurement. '
+                                        'Move the PC closer to the Motor and connect again.')
+        rssi = stats['rssi']
+        signal_level = 'good'
+        if rssi is not None and rssi < RSSI_GOOD:
+            signal_level = 'poor' if rssi < RSSI_POOR else 'fair'
+            add(signal_level, 'weak_signal',
+                'The signal is weak (RSSI {} dBm). Move the PC closer to the Motor, and keep metal objects, '
+                'walls and people out of the line between them.'.format(rssi))
+        link_level = 'good'
+        p95 = stats['latency_p95']
+        if stats['failure_rate'] > FAILURE_POOR or (p95 is not None and p95 > LATENCY_POOR) or (probe and not latencies):
+            link_level = 'poor'
+        elif stats['failure_rate'] > FAILURE_FAIR or (p95 is not None and p95 > LATENCY_FAIR):
+            link_level = 'fair'
+        if link_level != 'good' and signal_level == 'good':
+            add(link_level, 'interference',
+                'Responses are delayed or lost (failures {}/{}, 95% latency {}) although the signal is not weak: '
+                'radio interference is likely. Keep away from 2.4GHz devices (Wi-Fi routers, microwave ovens, '
+                'wireless cameras, other Bluetooth devices) or change the place.'.format(
+                    stats['failures'], stats['requests'], '{:.0f} ms'.format(p95 * 1000) if p95 else '-'))
+        elif link_level != 'good':
+            level = _worse(level, link_level)  # explained by the weak signal
+        for w in wifi:
+            if w['band'] in ('2.4GHz', None):
+                # Raspberry Pi (Linux): on-board Wi-Fi and Bluetooth share one chip and 2.4GHz Wi-Fi makes BLE fail
+                # very often, so this alone makes the level 'fair'. Other PCs: advice only.
+                add('fair' if sys.platform.startswith('linux') else 'good', 'wifi_2.4ghz',
+                    'This PC is using {} Wi-Fi ({}{}), which interferes with BLE. Use wired LAN and turn Wi-Fi off, '
+                    'or use 5GHz Wi-Fi.'.format(w['band'] or 'probably 2.4GHz', w['interface'],
+                                                 ', ch {}'.format(w['channel']) if w['channel'] else ''))
+        if advertisers is not None and advertisers >= CROWDED_ADVERTISERS:
+            advice.append({'code': 'crowded', 'message':
+                           'Many BLE devices ({}) are nearby: the 2.4GHz band is crowded and the link may become '
+                           'unstable.'.format(advertisers)})
+        if (stats['connect_attempts'] or 1) > 1 or stats['disconnects']:
+            add('fair', 'reconnected', 'The connection was unstable: {} attempts to connect, {} disconnections.'.format(
+                stats['connect_attempts'], stats['disconnects']))
+        stats.update(level=level, advice=advice)
+        return stats
+
+    async def _count_advertisers(self, scan_time):
+        seen = set()
+
+        def _on_detect(d, adv):
+            seen.add(d.address)
+            if d.address.upper() == self.address.upper():
+                _record_rssi(d.address, adv.rssi)
+
+        async with BleakScanner(detection_callback=_on_detect):
+            await asyncio.sleep(scan_time)
+        _last_scan.update(advertisers=len(seen), time=time.time())
+        return len(seen)
 
     # ------------------------------------------------------------
     # debug
@@ -235,7 +511,18 @@ class BLEController(base.Controller):
         if characteristics not in ('motor_tx', 'motor_led', 'motor_rx'):
             raise ValueError('Invalid Characteristics')
         tx_buf = val + calc_crc16_bytes(val)
-        self._worker.call(self._write(CHAR_UUIDS[characteristics], tx_buf), self.timeout)
+        self._timed(lambda: self._worker.call(self._write(CHAR_UUIDS[characteristics], tx_buf), self.timeout))
+
+    def _timed(self, func):
+        """Run a request (write with response / read) and record its round trip time for link_stats()."""
+        t = time.perf_counter()
+        try:
+            result = func()
+        except BaseException:
+            self._requests.append((time.time(), None))
+            raise
+        self._requests.append((time.time(), time.perf_counter() - t))
+        return result
 
     async def _write(self, uuid, data):
         async with self._write_lock:
@@ -324,8 +611,10 @@ class BLEController(base.Controller):
     # ------------------------------------------------------------
     # read
     # ------------------------------------------------------------
-    def _read_char(self, name):
-        return bytes(self._worker.call(self._client.read_gatt_char(CHAR_UUIDS[name]), self.timeout))
+    def _read_char(self, name, timeout=None):
+        timeout = self.timeout if timeout is None else timeout
+        return bytes(self._timed(lambda: self._worker.call(
+            asyncio.wait_for(self._client.read_gatt_char(CHAR_UUIDS[name]), timeout), timeout + 1.0)))
 
     def read_motor_measurement(self, validation_threshold=0.5):
         """

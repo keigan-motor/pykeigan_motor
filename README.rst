@@ -121,6 +121,28 @@ USB examples take the port as the first argument (default: /dev/ttyUSB0). On Win
 
 BLE (Windows / Linux)
 ----------------------
+
+.. warning::
+
+   **Raspberry Pi: turn off Wi-Fi when using BLE.**
+   The on-board Bluetooth of Raspberry Pi shares one radio chip with Wi-Fi, and the interference is severe.
+   While Wi-Fi is on (2.4GHz), BLE connections to KeiganMotor fail very often ("Connection Failed to be Established"),
+   and connecting to multiple Motors is practically impossible.
+   Raspberry Pi 5 has the same problem (it uses the same kind of radio chip).
+   In our test (2 Motors, connecting both 5 times):
+
+   - Wi-Fi off: both Motors connected 5/5 times in about 2 sec (Raspberry Pi 4 and 5).
+   - 2.4GHz Wi-Fi with network traffic: 1/5 (Raspberry Pi 5). On Raspberry Pi 4, a Motor could not be connected at all.
+   - 2.4GHz Wi-Fi without traffic: 4/5, and connecting took longer (Raspberry Pi 5).
+   - 5GHz Wi-Fi without traffic: 5/5 (Raspberry Pi 5).
+
+   Use wired LAN (for SSH, etc.) and turn Wi-Fi off::
+
+       sudo nmcli radio wifi off      # turn on again: sudo nmcli radio wifi on
+
+   If you need Wi-Fi, use 5GHz only (the same SSID may be connected at 2.4GHz automatically).
+   5GHz with network traffic and USB Bluetooth adapters have not been verified.
+
 You need to know the MAC address of your Keigan Motor for BLE connection.
 Scanning does not require sudo / administrator privileges.
 
@@ -147,6 +169,14 @@ KM1Scan.py
   dev.run_forward()
 
 Connecting takes about 2-4 sec. On Windows, ``BLEController(address)`` connects directly without scanning (if Windows has seen the Motor before); otherwise it scans for the Motor first.
+If establishing the connection fails, it retries automatically (``BLEController(address, timeout=10.0, retries=2)``: ``timeout`` [sec] is per scan / connection attempt).
+It raises ``blecontroller.DeviceNotFoundError`` if the Motor is not found, and ``ConnectionError`` if all attempts fail.
+On Raspberry Pi, if connections often fail, first check that Wi-Fi is off (see the warning above).
+
+To check whether the radio environment is good enough for BLE, use ``dev.diagnose_link()`` (example: ``examples/ble-link-check.py``).
+It measures the RSSI, the response time and failures of the link, the number of BLE devices nearby and the Wi-Fi of the PC,
+and returns ``'level'`` (``'good'`` / ``'fair'`` / ``'poor'``) with advice for improvement.
+``dev.link_stats()`` returns the response time and failures of the commands sent in normal use (no extra communication) for monitoring.
 
 BLE examples take the MAC address as the first argument. If omitted, they scan and let you select the Motor from the list (connect automatically if only one is found)::
 
