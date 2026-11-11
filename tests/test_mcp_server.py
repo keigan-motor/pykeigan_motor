@@ -200,6 +200,17 @@ def test_baud_option_and_connect(monkeypatch):
         mcp_server.main(['--baud', '9600'])
 
 
+def test_connect_failure_hints(monkeypatch):
+    from pykeigan import usbcontroller
+
+    def broken_usb(*a, **kw):
+        raise ConnectionError('Cannot open COM9')
+    monkeypatch.setattr(usbcontroller, 'USBController', broken_usb)
+    server = mcp_server.create_server(mcp_server.MotorSession('usb', 'COM9'))
+    with pytest.raises(ToolError, match='Type-C power cable'):
+        call(server, 'read_measurement')
+
+
 def test_imu_taskset_queue_errors(env):
     server, motor = env
     assert '10.0' in str(call(server, 'read_imu'))

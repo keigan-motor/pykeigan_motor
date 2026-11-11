@@ -17,8 +17,9 @@ from pykeigan.utils import *
 KEIGAN_USB_VID = 0x0403  # KeiganMotor uses an FTDI USB-serial chip (FT230X)
 
 HARDWARE_HINT = ('  -> This is usually a USB hardware path problem, not a software one:\n'
+                 '     * connect the USB communication cable (the USB Type-C power cable alone does not carry data)\n'
+                 '     * try another USB communication cable (some cables are charge-only, or damaged)\n'
                  '     * connect the Motor directly to the PC (remove USB hubs / extension cables)\n'
-                 '     * try another USB cable (some cables are charge-only, or damaged)\n'
                  '     * check the power supply of the Motor\n'
                  '     * try another USB port of the PC')
 

@@ -37,6 +37,15 @@ ARRIVAL_TOLERANCE_DEG = 1.0
 ARRIVAL_VELOCITY_RPM = 1.0
 LED_STATES = {'off': 0, 'solid': 1, 'flash': 2, 'dim': 3}
 CURVE_TYPES = {'none': 0, 'trapezoid': 1, 'direct': 10}
+# common causes shown when connecting fails (most likely first)
+CONNECT_HINTS = {
+    'usb': ('Common causes: the USB communication cable is not connected (only the USB Type-C power cable), '
+            'a faulty USB communication cable (or a charge-only one), a USB hub (connect directly to the PC), '
+            'or a baud rate different from the motor (--baud / connect baud).'),
+    'ble': ('Common causes: the motor is already connected to another device (BLE allows only one connection: '
+            'close the smartphone app or other programs), or the radio environment (distance, obstacles, '
+            '2.4 GHz interference such as Wi-Fi).'),
+}
 # setting number of set_baud_rate() / read_baud_rate() -> USB (UART) baud rate
 BAUD_RATES = {0: 115200, 1: 230400, 2: 250000, 3: 460800, 4: 921600, 5: 1000000}
 SAFE_RUN_ACTIONS = {'free': 0, 'disable': 1, 'stop': 2, 'hold_position': 3}
@@ -141,7 +150,8 @@ class MotorSession(object):
             except ToolError:
                 raise
             except Exception as e:
-                raise ToolError('Connecting to {} ({}) failed: {}'.format(target, transport, e)) from e
+                raise ToolError('Connecting to {} ({}) failed: {}\n{}'.format(
+                    target, transport, e, CONNECT_HINTS.get(transport, ''))) from e
 
     def call(self, name, *args):
         """Call a controller method with the I/O lock held, converting errors into ToolError."""
@@ -201,7 +211,9 @@ def create_server(session):
         """List serial ports (USB connection candidates).
         KeiganMotor uses an FTDI USB-serial chip: vid 0403 ('likely_keigan_motor': true). Bluetooth ports are not motors.
         If no port is a likely KeiganMotor, the Motor is not visible to the OS: this is usually a USB hardware
-        problem (USB hub, charge-only or damaged cable, Motor power), tell the user to connect directly with another cable."""
+        problem. Ask the user to check, in this order: the USB communication cable is connected (the USB Type-C
+        power cable alone is not enough), the communication cable is not faulty or charge-only (try another one),
+        no USB hub in between (connect directly to the PC), and the Motor power."""
         try:
             require_pyserial()
         except MissingDependencyError as e:
@@ -217,7 +229,10 @@ def create_server(session):
 
     @server.tool(annotations=_READ_ONLY)
     def scan_ble(timeout_s: float = 5.0) -> list[dict]:
-        """Scan KeiganMotors nearby over BLE. Returns name, address and rssi (dBm), strongest first."""
+        """Scan KeiganMotors nearby over BLE. Returns name, address and rssi (dBm), strongest first.
+        If the motor is not found: it may already be connected to another device (BLE allows only one connection;
+        a connected motor stops advertising), or the radio environment is poor (distance, obstacles, 2.4 GHz
+        interference). After a USB connection BLE may be disabled until the motor is restarted."""
         try:
             from pykeigan import blecontroller
         except MissingDependencyError as e:
