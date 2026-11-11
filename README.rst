@@ -15,20 +15,23 @@ https://www.keigan-motor.com/
 
 **Just in case you can get v1 from: https://github.com/keigan-motor/pykeigan_motor/tree/v1**
 
-At present we support Linux only for BLE, because the BLE functions of this library depends on bluepy(Python interface to Bluetooth LE on Linux by Mr. Ian Harvey):
+The BLE functions of this library depend on bleak (cross-platform Bluetooth Low Energy client), and work on Windows and Linux (including Raspberry Pi 4/5):
 
-https://github.com/IanHarvey/bluepy
+https://github.com/hbldh/bleak
 
 The USB serial functions should work on Windows and Mac too.
 
 Requirements
 ------------------
 
-- python >= 3.5 (recommended)
+- python >= 3.5 (USB only)
+- python >= 3.8 for BLE (python >= 3.10 recommended). The minimum version is required by bleak:
+  pip installs the latest bleak that supports your python (3.8: bleak 0.22, 3.9: bleak 1.x, 3.10 or later: bleak 2.x / 3.x).
+  Raspberry Pi OS Bookworm (python 3.11) and Bullseye (python 3.9) are supported. Buster (python 3.7) is not supported for BLE.
 - pyserial >= 3.4
-- bluepy >= 1.1.4 (BLE support. Linux only)
+- bleak >= 0.22 (BLE support. Windows 10+ / Linux with BlueZ >= 5.55)
 
-**NOTE) This library runs on python 3.5 or later.**  
+**NOTE) This library runs on python 3.5 or later (BLE: python 3.8 or later).**  
 
 **If you want to use it with python 2.7 in ROS, etc., please use 2.2.0.**  
 
@@ -53,8 +56,6 @@ Install from source::
     cd pykeigan_motor
     python setup.py install
     # and to install BLE Support
-        sudo apt-get install python-pip libglib2.0-dev
-        sudo pip install bluepy
     pip install .[ble]
 
 Install from PyPI::
@@ -83,43 +84,81 @@ To use your Keigan Motor through USB serial, you need to add R/W permission to i
 .. code-block:: python
 
   from pykeigan import usbcontroller
-  dev=usbcontroller.USBContoller('/dev/serial/by-id/usb-FTDI_FT230X_Basic_UART_DM00xxxx-if00-port0')
+  dev=usbcontroller.USBController('/dev/serial/by-id/usb-FTDI_FT230X_Basic_UART_DM00xxxx-if00-port0')
   dev.enable_action()
   dev.set_speed(1.0)
   dev.run_forward()
 
+USB examples take the port as the first argument (default: /dev/ttyUSB0). On Windows use ``COM3`` etc.::
+
+    python3 examples/usb-simple-connection.py /dev/ttyUSB0
+    python examples\usb-simple-connection.py COM3
+
 - examples/usb-simple-connection.py
-    Basic connection to the Motor.
+    Basic connection to the Motor. Blink the LED and rotate at 5 rpm.
 - examples/usb-rotate-the-motor.py
-    Rotate the Motor continuously and stop.
+    Rotate the Motor forward (10 s), reverse (10 s), stop with torque and free.
 - examples/usb-position-control.py
     Rotate the Motor to the relative and absolute position.
+- examples/usb-offset-position-control.py
+    Absolute positioning with a program-side offset (OFFSET_DEG) as the machine zero, without overwriting the Motor's origin.
+    Run with ``--measure`` first to print the current position without moving the Motor.
+- examples/usb-move_wait_queue.py
+    Move to the next position after the arrival (move_to_pos_wait): 0 -> 90 -> 0 -> -90 -> 0 deg.
 - examples/usb-get-motor-Informations.py
-    Acquire the speed, position, torque and IMU values of the Motor.
+    Acquire the speed, position, torque and IMU values of the Motor (with motor time, firmware >= 2.62).
+- examples/usb-get-motor-Info-time.py
+    Same as usb-get-motor-Informations.py without the motor time setting.
 - examples/usb-actuator.py
-    Let the Motor go and return for the specific distance.
+    Let the Motor go and return between 0 and 720 deg.
+- examples/usb-button_trigger.py
+    Get the button events of the Motor. Set ``port1`` in the file.
+- examples/usb-sine-wave.py
+    Sine wave position control with a graph (requires matplotlib, Linux only because of signal.setitimer).
 - examples/usb-torque-control.py
     Demonstration for a torque control. Increase the torque as you rotate the Motor by hand.
 - examples/usb-teaching-control.py
     Let the Motor record and playback your motion.
+- examples/windows_examples/
+    USB examples for Windows (COM port selection, PID / baud rate settings, taskset, etc.). See examples/readme.md for details.
 
-BLE (for Linux Only)
+BLE (Windows / Linux)
 ----------------------
-You need to know the MAC address of your Keigan Motor for BLE connection.
 
-For example, you can use the following simple script. Please run with sudo.
+.. warning::
+
+   **Raspberry Pi: turn off Wi-Fi when using BLE.**
+   The on-board Bluetooth of Raspberry Pi shares one radio chip with Wi-Fi, and the interference is severe.
+   While Wi-Fi is on (2.4GHz), BLE connections to KeiganMotor fail very often ("Connection Failed to be Established"),
+   and connecting to multiple Motors is practically impossible.
+   Raspberry Pi 5 has the same problem (it uses the same kind of radio chip).
+   In our test (2 Motors, connecting both 5 times):
+
+   - Wi-Fi off: both Motors connected 5/5 times in about 2 sec (Raspberry Pi 4 and 5).
+   - 2.4GHz Wi-Fi with network traffic: 1/5 (Raspberry Pi 5). On Raspberry Pi 4, a Motor could not be connected at all.
+   - 2.4GHz Wi-Fi without traffic: 4/5, and connecting took longer (Raspberry Pi 5).
+   - 5GHz Wi-Fi without traffic: 5/5 (Raspberry Pi 5).
+
+   Use wired LAN (for SSH, etc.) and turn Wi-Fi off::
+
+       sudo nmcli radio wifi off      # turn on again: sudo nmcli radio wifi on
+
+   If you need Wi-Fi, use 5GHz only (the same SSID may be connected at 2.4GHz automatically).
+   5GHz with network traffic and USB Bluetooth adapters have not been verified.
+
+You need to know the MAC address of your Keigan Motor for BLE connection.
+Scanning does not require sudo / administrator privileges.
 
 KM1Scan.py
 
 .. code-block:: python
 
-  from bluepy.btle import Scanner
-  scanner=Scanner()
-  devices=scanner.scan(5.0)
-  for dev in devices:
-      for (adtype, desc, value) in dev.getScanData():
-          if desc=="Complete Local Name" and "KM-1" in value:
-              print(value,":",dev.addr)
+  from pykeigan import blecontroller
+  for km in blecontroller.scan(5.0):
+      print(km['name'], ":", km['address'])
+
+- Raspberry Pi: bleak uses BlueZ via D-Bus. Make sure the bluetooth service is running (``sudo systemctl enable --now bluetooth``) and the user is in the ``bluetooth`` group.
+- Measurement values are received by BLE notifications. ``on_motor_measurement_value_cb``, ``on_motor_imu_measurement_cb``, ``on_motor_log_cb`` and ``on_motor_event_cb`` can be used in the same way as USBController. Callbacks are called from a background thread.
 
 - Simplest Sample Code
     Rotate counter-clockwise with 1.0 rad/sec.
@@ -132,17 +171,97 @@ KM1Scan.py
   dev.set_speed(1.0)
   dev.run_forward()
 
-- examples/ble-simple-connection.py
-    Basic connection to the Motor.
+Connecting takes about 2-4 sec. On Windows, ``BLEController(address)`` connects directly without scanning (if Windows has seen the Motor before); otherwise it scans for the Motor first.
+If establishing the connection fails, it retries automatically (``BLEController(address, timeout=10.0, retries=2)``: ``timeout`` [sec] is per scan / connection attempt).
+It raises ``blecontroller.DeviceNotFoundError`` if the Motor is not found, and ``ConnectionError`` if all attempts fail.
+On Raspberry Pi, if connections often fail, first check that Wi-Fi is off (see the warning above).
+
+To check whether the radio environment is good enough for BLE, use ``dev.diagnose_link()`` (example: ``examples/ble-link-check.py``).
+It measures the RSSI, the response time and failures of the link, the number of BLE devices nearby and the Wi-Fi of the PC,
+and returns ``'level'`` (``'good'`` / ``'fair'`` / ``'poor'``) with advice for improvement.
+``dev.link_stats()`` returns the response time and failures of the commands sent in normal use (no extra communication) for monitoring.
+If connecting fails, ``blecontroller.diagnose_environment(address, error=e)`` diagnoses without connecting:
+whether the Motor is advertising, its RSSI, the number of BLE devices nearby and the Wi-Fi of the PC (``ble-link-check.py`` does this automatically).
+
+BLE examples take the MAC address as the first argument. If omitted, they scan and let you select the Motor from the list (connect automatically if only one is found)::
+
+    python3 examples/ble-simple-connection.py xx:xx:xx:xx:xx:xx
+    python3 examples/ble-simple-connection.py
+      [0] KM-1U XXXX#54C : EF:16:B8:BB:D9:52 (RSSI -52)
+      [1] KM-1U YYYY#12A : D1:5A:FA:A7:D9:5D (RSSI -70)
+    Connect:[number] Rescan:[r] Quit:[q] >>
+
+- examples/KM1Scan.py
+    Scan Keigan Motors and print the names and MAC addresses (argument: scan seconds, default 10). Found Motors are printed immediately with the remaining time.
 - examples/ble-scanner-connection.py
-    Connect to the Motor by BLE scanning.
+    Scan, select and connect to the Motor, and blink the LED. Press [s] to rescan and switch to another Motor (the connected Motor is disconnected before scanning, because a connected Motor does not advertise).
+- examples/ble-simple-connection.py
+    Basic connection to the Motor. Blink the LED and rotate at 5 rpm.
 - examples/ble-rotate-the-motor.py
-    Rotate the Motor continuously and stop.
+    Rotate the Motor forward (10 s), reverse (10 s), stop with torque and free.
 - examples/ble-get-motor-Informations.py
-     Acquire the speed, position, torque and IMU values of the Motor.
+    Acquire the status, speed, position, torque and IMU values of the Motor.
+- examples/ble_select.py
+    Common "scan and select" helper used by the BLE examples (``from ble_select import select_motor``).
+
+Multiple Motors (BLE)
+^^^^^^^^^^^^^^^^^^^^^^
+Create one ``BLEController`` per MAC address to control multiple Motors at the same time.
+Each controller has its own connection and callbacks (all controllers share one background thread).
+
+.. code-block:: python
+
+  from pykeigan import blecontroller
+  blecontroller.scan(5.0)   # scan once first (connected Motors do not advertise)
+  motors = [blecontroller.BLEController(a) for a in ["xx:xx:xx:xx:xx:xx", "yy:yy:yy:yy:yy:yy"]]
+  for i, m in enumerate(motors):
+      m.on_motor_measurement_value_cb = lambda v, i=i: print(i, v['position'])
+      m.enable_continual_motor_measurement()
+
+The multi-motor examples take MAC addresses as arguments. If omitted, they scan (10 s) and let you select Motors by numbers (e.g. ``0,1``, or ``a`` for all).
+In a crowded BLE environment one scan may miss some Motors; press ``r`` to rescan, and newly found Motors are added to the list (the numbers of found Motors are kept)::
+
+    python3 examples/ble-multi-simple-connection.py xx:xx:xx:xx:xx:xx yy:yy:yy:yy:yy:yy
+    python3 examples/ble-multi-simple-connection.py
+    Connect:[numbers e.g. 0,1 / a=all] Rescan:[r] Quit:[q] >>0,1
+
+- examples/ble-multi-simple-connection.py
+    Connect to multiple Motors, blink the LEDs in different colors and rotate them at 5 rpm at the same time.
+- examples/ble-multi-get-motor-Informations.py
+    Show the position, velocity, torque and notification rate [Hz] of all Motors in a table.
+- examples/ble-multi-position-control.py
+    Synchronized position control: all Motors move to the same angles and wait for all of them to arrive.
+- examples/ble-multi-follow.py
+    Leader / follower: turn the first Motor (free) by hand and the others follow it (``--reverse`` for the opposite direction).
+- examples/ble_multi.py
+    Common helpers for the multi-motor examples (select, connect, send to all Motors in parallel, disconnect).
+
+Notes for multiple Motors:
+
+- The number of simultaneous connections depends on the BLE adapter (about 5-7 in general; the built-in adapter of Raspberry Pi may be less stable). Use a USB BLE dongle if needed.
+- Commands cannot be sent from callbacks (``RuntimeError``). Store values in the callback and send commands from another thread (see ble-multi-follow.py).
+
+If the Motor is not found by scanning:
+
+- Close smartphone apps (KMQuick etc.) or other PCs connected to the Motor. The Motor stops advertising while connected.
+- BLE may be disabled after a USB connection. Enable it by KMQuick or reboot the Motor.
+- Reset the interface of the Motor: https://document.keigan-motor.com/basic/reset
 
 Release Notes
 ------------------
+Release 2.5.0
+
+- BLE: replaced bluepy with bleak. BLE now works on Windows and Linux (including Raspberry Pi 4/5) without sudo. python >= 3.8 is required for BLE.
+- BLE: ``blecontroller.scan()``, connection retries (``BLEController(addr, timeout=10.0, retries=2)``), faster connection on Windows,
+  ``DeviceNotFoundError``, notifications for measurement values / logs / events (callbacks same as USBController).
+- BLE: link diagnostics (``diagnose_link()``, ``link_stats()``, ``blecontroller.diagnose_environment()``, ``blecontroller.check_wifi()``).
+- BLE: ``read_imu_measurement_interval()``, ``read_motor_measurement_interval()`` and ``read_baud_rate()`` are supported.
+- BLE: ``read_motor_measurement()`` / ``read_imu_measurement()`` return the latest notified value (within ``validation_threshold`` sec) or read the value directly.
+- BLE (incompatible changes): removed ``BLEController.dev`` (bluepy Peripheral), ``start_command_log_capturing()`` and ``print_command_log()``.
+  ``start_debug()`` only prints the command logs received by notifications. Commands raise ``ConnectionError`` while disconnected, and ``TimeoutError`` on timeout.
+- Removed ``read_gpio_status()`` (register 0xCC is not supported by the library).
+- New BLE examples (scan & select, multiple Motors, link check) and usb-offset-position-control.py.
+
 Release 2.4.0
 
 - Added support both python2 and 3 support
