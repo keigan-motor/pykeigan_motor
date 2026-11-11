@@ -16,6 +16,7 @@ methods from inside them.
 """
 import asyncio
 import atexit
+import sys
 import threading
 import time
 
@@ -40,7 +41,7 @@ CHAR_UUIDS = {
 }
 
 FLOAT_VALUE_COMMS = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x5B]
-VALID_COMMS = [0x05, 0x3A, 0x46, 0x47, 0x9A] + FLOAT_VALUE_COMMS
+VALID_COMMS = [0x05, 0x2C, 0x3A, 0x46, 0x47, 0x9A] + FLOAT_VALUE_COMMS
 
 
 class _LoopThread(object):
@@ -155,20 +156,37 @@ class BLEController(base.Controller):
     async def _connect(self):
         self._write_lock = asyncio.Lock()
         self._closing = False
+        # 1. device found by scan() just before: fastest
         cached = _scanned_devices.pop(self.address.upper(), None)
-        try:
-            if cached is None:
-                raise LookupError
-            await self.__connect_device(cached)
-        except Exception:
-            # no cache, or the cached device is stale (e.g. the motor was rebooted): scan again
-            device = await BleakScanner.find_device_by_address(self.address, timeout=self.timeout)
-            if device is None:
-                raise ConnectionError('KeiganMotor not found: {}'.format(self.address))
-            await self.__connect_device(device)
+        if cached is not None:
+            try:
+                await self.__connect_device(cached)
+                return
+            except Exception:
+                pass  # stale (e.g. the motor was rebooted)
+        # 2. Windows: connect by address without scanning. Advertisements are received only every few
+        #    seconds in a crowded environment, so scanning first often takes 5-10 sec or more.
+        #    Fails immediately if Windows has never seen the device.
+        if sys.platform == 'win32':
+            try:
+                await self.__connect_device(self.address, direct=True)
+                return
+            except Exception:
+                pass
+        # 3. scan for the device, then connect
+        device = await BleakScanner.find_device_by_address(self.address, timeout=self.timeout)
+        if device is None:
+            raise ConnectionError('KeiganMotor not found: {}'.format(self.address))
+        await self.__connect_device(device)
 
-    async def __connect_device(self, device):
+    async def __connect_device(self, device, direct=False):
         self._client = BleakClient(device, disconnected_callback=self._on_disconnected)
+        if direct:
+            # bleak (WinRT) scans only to get the 48-bit Bluetooth address; give it directly.
+            backend = getattr(self._client, '_backend', None)
+            if backend is None or not hasattr(backend, '_device_info'):
+                raise LookupError('direct connection is not supported by this bleak version')
+            backend._device_info = int(self.address.replace(':', ''), 16)
         await self._client.connect(timeout=self.timeout)
         await self._client.start_notify(CHAR_UUIDS['motor_measurement'], self._on_motor_measurement)
         await self._client.start_notify(CHAR_UUIDS['motor_imu_measurement'], self._on_imu_measurement)
@@ -273,7 +291,7 @@ class BLEController(base.Controller):
         value = payload[3:]
         if comm in FLOAT_VALUE_COMMS:
             val = bytes2float(value[0:4])
-        elif comm == 0x05:
+        elif comm in (0x05, 0x2C):  # curve type / motor measurement interval (uint8)
             val = bytes2uint8_t(value[0:1])
         elif comm == 0x3A:
             val = bytes2uint8_t(value[0:1]), bytes2uint8_t(value[1:2]), bytes2uint8_t(value[2:3])

@@ -18,7 +18,7 @@ current_dir = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(current_dir) + '/../') # give 1st priority to the directory where pykeigan exists
 
 from pykeigan import blecontroller
-from ble_select import select_motor
+from ble_select import select_motor, connect_motor
 
 """
 ----------------------
@@ -59,7 +59,7 @@ address = args.address or select_motor()  # 省略時はスキャンして選択
 if address is None:
     sys.exit()
 
-dev=blecontroller.BLEController(address)
+dev=connect_motor(address)
 dev.set_led(2,255,255,0)
 dev.enable_continual_motor_measurement()
 dev.enable_continual_imu_measurement()#IMUは通知をOnにする必要がある

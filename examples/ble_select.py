@@ -4,6 +4,8 @@ BLE サンプル共通: KeiganMotor をスキャンして、接続するモー�
 """
 import sys
 import pathlib
+import threading
+import time
 
 current_dir = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(current_dir) + '/../') # give 1st priority to the directory where pykeigan exists
@@ -11,10 +13,40 @@ sys.path.insert(0, str(current_dir) + '/../') # give 1st priority to the directo
 from pykeigan import blecontroller
 
 
-
 def _print_found(km):
     # スキャン中に見つけたモーターをその場で表示する (バックグラウンドのスレッドから呼ばれる)
     print("  ({:4.1f}s) found {}".format(km['elapsed'], km['name']), flush=True)
+
+
+def connect_motor(address, **kwargs):
+    """
+    BLEController(address) で接続する。接続中は 0.5秒ごとに '.' を表示し、かかった時間を表示する。
+    接続できなかった場合は例外を送出する。
+    """
+    result = {}
+
+    def run():
+        try:
+            result['dev'] = blecontroller.BLEController(address, **kwargs)
+        except Exception as e:
+            result['error'] = e
+
+    t0 = time.time()
+    sys.stdout.write("connecting to {} ".format(address))
+    sys.stdout.flush()
+    th = threading.Thread(target=run, daemon=True)
+    th.start()
+    while th.is_alive():
+        th.join(0.5)
+        if th.is_alive():
+            sys.stdout.write(".")
+            sys.stdout.flush()
+    if 'error' in result:
+        print(" failed ({:.1f}s)".format(time.time() - t0))
+        raise result['error']
+    print(" connected ({:.1f}s)".format(time.time() - t0))
+    return result['dev']
+
 
 def select_motor(scan_sec=5.0, auto_select_single=True):
     """

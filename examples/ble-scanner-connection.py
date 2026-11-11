@@ -13,7 +13,7 @@ current_dir = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(current_dir) + '/../') # give 1st priority to the directory where pykeigan exists
 
 from pykeigan import blecontroller
-from ble_select import select_motor
+from ble_select import select_motor, connect_motor
 
 scan_sec=5.0
 target_dev=None
@@ -45,7 +45,7 @@ def release():
 
 def connection(macdress):
     global target_dev
-    target_dev = blecontroller.BLEController(macdress)
+    target_dev = connect_motor(macdress)
     target_dev.set_led(2,255,255,0)# (LEDflash:2,R:255,G:255,B:0)　https://document.keigan-motor.com/software_dev/lowapis/led
     print('connected:', target_dev.read_device_name())
 

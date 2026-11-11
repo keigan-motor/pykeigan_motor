@@ -146,6 +146,8 @@ KM1Scan.py
   dev.set_speed(1.0)
   dev.run_forward()
 
+Connecting takes about 2-4 sec. On Windows, ``BLEController(address)`` connects directly without scanning (if Windows has seen the Motor before); otherwise it scans for the Motor first.
+
 BLE examples take the MAC address as the first argument. If omitted, they scan and let you select the Motor from the list (connect automatically if only one is found)::
 
     python3 examples/ble-simple-connection.py xx:xx:xx:xx:xx:xx

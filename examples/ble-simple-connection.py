@@ -14,7 +14,7 @@ current_dir = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(current_dir) + '/../') # give 1st priority to the directory where pykeigan exists
 
 from pykeigan import blecontroller
-from ble_select import select_motor
+from ble_select import select_motor, connect_motor
 from pykeigan import utils
 
 """
@@ -36,7 +36,7 @@ address = args.address or select_motor()  # 省略時はスキャンして選択
 if address is None:
     sys.exit()
 
-dev=blecontroller.BLEController(address)#モーターのMACアドレス
+dev=connect_motor(address)#モーターのMACアドレス
 dev.set_led(2,255,255,0)# (LEDflash:2,R:255,G:255,B:0) https://document.keigan-motor.com/software_dev/lowapis/led
 dev.enable_action()#安全装置。初めてモーターを動作させる場合に必ず必要。
 dev.set_speed(utils.rpm2rad_per_sec(5))#rpm -> radian/sec

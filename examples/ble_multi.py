@@ -23,6 +23,7 @@ current_dir = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(current_dir) + '/../') # give 1st priority to the directory where pykeigan exists
 
 from pykeigan import blecontroller
+from ble_select import connect_motor
 
 # モーターごとの LED 色 (R, G, B)。選択した順に割り当てる
 LED_COLORS = [(255, 255, 0), (0, 255, 255), (255, 0, 255), (0, 255, 0), (255, 128, 0), (0, 0, 255), (255, 0, 0)]
@@ -90,9 +91,8 @@ def connect_motors(addresses):
     """
     motors = []
     for address in addresses:
-        print("connecting to", address, "...")
         try:
-            m = blecontroller.BLEController(address)
+            m = connect_motor(address)
         except Exception as e:
             print("  failed:", address, e)
             continue
