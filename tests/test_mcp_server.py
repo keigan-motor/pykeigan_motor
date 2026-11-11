@@ -174,6 +174,32 @@ def test_read_settings_and_pid(env):
     assert 'max_torque_nm' in result and '12.5' in result
 
 
+def test_read_settings_baud_rate(env):
+    server, motor = env
+    motor.set_baud_rate(4)  # the fake stores it; read_baud_rate() returns the setting number
+    assert '"usb_baud_rate": 921600' in str(call(server, 'read_settings'))
+
+
+def test_baud_option_and_connect(monkeypatch):
+    from pykeigan import usbcontroller
+    opened = []
+
+    def fake_usb(port, baud=115200, open_timeout=None, **kw):
+        opened.append((port, baud))
+        return FakeMotor()
+    monkeypatch.setattr(usbcontroller, 'USBController', fake_usb)
+    session = mcp_server.MotorSession('usb', 'COM9', baud=921600)
+    server = mcp_server.create_server(session)
+    call(server, 'read_measurement')
+    assert opened[-1] == ('COM9', 921600)
+    result = str(call(server, 'connect', transport='usb', target='COM8', baud=230400))
+    assert opened[-1] == ('COM8', 230400) and '"baud": 230400' in result
+    with pytest.raises(ToolError, match='baud must be'):
+        call(server, 'connect', transport='usb', target='COM8', baud=9600)
+    with pytest.raises(SystemExit):
+        mcp_server.main(['--baud', '9600'])
+
+
 def test_imu_taskset_queue_errors(env):
     server, motor = env
     assert '10.0' in str(call(server, 'read_imu'))

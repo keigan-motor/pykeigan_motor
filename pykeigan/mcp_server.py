@@ -37,6 +37,8 @@ ARRIVAL_TOLERANCE_DEG = 1.0
 ARRIVAL_VELOCITY_RPM = 1.0
 LED_STATES = {'off': 0, 'solid': 1, 'flash': 2, 'dim': 3}
 CURVE_TYPES = {'none': 0, 'trapezoid': 1, 'direct': 10}
+# setting number of set_baud_rate() / read_baud_rate() -> USB (UART) baud rate
+BAUD_RATES = {0: 115200, 1: 230400, 2: 250000, 3: 460800, 4: 921600, 5: 1000000}
 SAFE_RUN_ACTIONS = {'free': 0, 'disable': 1, 'stop': 2, 'hold_position': 3}
 PID_SETTERS = {'q_current': ('set_qcurrent_p', 'set_qcurrent_i', 'set_qcurrent_d'),
                'speed': ('set_speed_p', 'set_speed_i', 'set_speed_d'),
@@ -68,12 +70,13 @@ class MotorSession(object):
     """Holds one connection to a KeiganMotor, shared by all tool calls."""
 
     def __init__(self, transport=None, target=None, max_rpm=DEFAULT_MAX_RPM, max_torque=DEFAULT_MAX_TORQUE,
-                 timeout=10.0):
+                 timeout=10.0, baud=115200):
         self.default_transport = transport
         self.default_target = target
         self.max_rpm = max_rpm
         self.max_torque = max_torque
         self.timeout = timeout
+        self.baud = baud  # USB (UART) baud rate to open the port with
         self.transport = None
         self.target = None
         self.dev = None
@@ -87,7 +90,7 @@ class MotorSession(object):
             self._close()
             if transport == 'usb':
                 from pykeigan import usbcontroller
-                dev = usbcontroller.USBController(target, open_timeout=self.timeout)
+                dev = usbcontroller.USBController(target, baud=self.baud, open_timeout=self.timeout)
             elif transport == 'ble':
                 from pykeigan import blecontroller
                 dev = blecontroller.BLEController(target, timeout=self.timeout)
@@ -222,13 +225,23 @@ def create_server(session):
         return blecontroller.scan(timeout=timeout_s)
 
     @server.tool(annotations=_SAFE_ACTION)
-    def connect(transport: Literal['usb', 'ble'], target: str) -> dict:
+    def connect(transport: Literal['usb', 'ble'], target: str, baud: int | None = None) -> dict:
         """Connect to a KeiganMotor. 'target' is the serial port (e.g. COM3, /dev/ttyUSB0) for usb,
-        or the address from scan_ble for ble. Replaces the current connection."""
+        or the address from scan_ble for ble. Replaces the current connection.
+        'baud' (usb only): baud rate to open the port with, needed only if the motor's baud rate was changed
+        from the default 115200. Omit to keep the current one. If the motor does not answer over usb,
+        a different baud rate is one possible cause."""
+        if baud is not None:
+            if baud not in BAUD_RATES.values():
+                raise ToolError('baud must be one of {}'.format(', '.join(str(b) for b in BAUD_RATES.values())))
+            session.baud = baud
         session.transport, session.target = transport, target
         session.disconnect()
         session.device()  # connects to transport / target
-        return dict(_info(), transport=transport, target=target)
+        result = dict(_info(), transport=transport, target=target)
+        if transport == 'usb':
+            result['baud'] = session.baud
+        return result
 
     @server.tool(annotations=_SAFE_ACTION)
     def disconnect() -> str:
@@ -417,6 +430,7 @@ def create_server(session):
             'own_color_rgb': _read('read_own_color'),
             'motor_measurement_interval_code': _read('read_motor_measurement_interval'),
             'imu_measurement_interval_code': _read('read_imu_measurement_interval'),
+            'usb_baud_rate': _read('read_baud_rate', lambda v: BAUD_RATES.get(v, v)),
             'server_limits': {'max_rpm': session.max_rpm, 'max_torque_nm': session.max_torque},
         }
 
@@ -631,6 +645,9 @@ def main(argv=None):
                         help='reject speeds above this [rpm] (default: %(default)s)')
     parser.add_argument('--max-torque', type=float, default=DEFAULT_MAX_TORQUE,
                         help='reject torques above this [N.m] (default: %(default)s)')
+    parser.add_argument('--baud', type=int, default=115200, choices=sorted(BAUD_RATES.values()), metavar='BAUD',
+                        help='USB baud rate, only if the motor was changed from the default (default: %(default)s; '
+                             'one of {})'.format(', '.join(str(b) for b in sorted(BAUD_RATES.values()))))
     parser.add_argument('--timeout', type=float, default=10.0, help='connection timeout [sec] (default: %(default)s)')
     parser.add_argument('--http', metavar='[HOST:]PORT',
                         help='serve over Streamable HTTP instead of stdio (e.g. 8000 or 0.0.0.0:8000). '
@@ -638,7 +655,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     transport = 'usb' if args.usb else 'ble' if args.ble else None
-    session = MotorSession(transport, args.usb or args.ble, args.max_rpm, args.max_torque, args.timeout)
+    session = MotorSession(transport, args.usb or args.ble, args.max_rpm, args.max_torque, args.timeout,
+                           baud=args.baud)
     server = create_server(session)
     try:
         if args.http:
