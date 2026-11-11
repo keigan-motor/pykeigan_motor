@@ -1129,6 +1129,14 @@ class Controller:
         """
         return self._read_setting_value(0x21)
 
+    def read_position_offset(self):
+        """
+        Read the offset of the absolute position in rad (register 0x5B), set by preset_position().
+        Each preset_position() adds to it. It is kept in RAM: 0 after power-on
+        (saving it to the flash memory is supported from motor firmware 3.00).
+        """
+        return self._read_setting_value(0x5B)
+
     def read_own_color(self):
         """
         ToDo
