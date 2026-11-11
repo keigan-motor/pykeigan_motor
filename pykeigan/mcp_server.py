@@ -43,7 +43,11 @@ PID_SETTERS = {'q_current': ('set_qcurrent_p', 'set_qcurrent_i', 'set_qcurrent_d
 INSTRUCTIONS = """\
 Controls a KeiganMotor (smart servo motor).
 - Units: position/distance in degrees, speed in rpm, acceleration in rpm/s, torque in N.m. Positive = counter clockwise.
-- Call enable_motor before moving. stop_motor decelerates to zero and holds; free_motor removes the excitation.
+- Call enable_motor before moving. free_motor removes the excitation.
+- stop_motor decelerates to zero and keeps 0 rpm (velocity control). It does NOT hold the position: if the shaft
+  is turned by an external force, it does not come back.
+- To fix / hold the motor at its current position (e.g. "その場で固定して"), use hold_position (position control).
+  The holding force is limited by the max torque setting (read_settings): a stronger external force overcomes it.
 - Moving the real motor is a physical action: only move it when the user asked for it.
 - Speeds above {max_rpm} rpm and torques above {max_torque} N.m are rejected (server limits).
 - update_settings / set_pid_gains change the RAM only (lost on reboot). save_settings_to_flash makes them
@@ -262,7 +266,9 @@ def create_server(session):
 
     @server.tool(annotations=_SAFE_ACTION)
     def stop_motor() -> dict:
-        """Decelerate to zero speed and hold the position. Use this to stop any motion."""
+        """Decelerate to zero speed and keep 0 rpm (velocity control). Use this to stop any motion.
+        It does NOT hold the position: if the shaft is turned by an external force, it does not come back.
+        Use hold_position to fix the motor at its position."""
         session._abort.set()
         session.call('stop_motor')
         return session.measurement()
@@ -310,6 +316,25 @@ def create_server(session):
         if not wait:
             return {'target_deg': round(target, 3)}
         return dict(session.wait_arrival(target, timeout_s), target_deg=round(target, 3))
+
+    @server.tool(annotations=_ACTION)
+    def hold_position() -> dict:
+        """Fix the motor at its current position (position control): if the shaft is turned by an external
+        force, it comes back. Use this for "hold / fix it here". The holding force is limited by the max torque
+        setting (max_torque_nm in the result); a stronger force overcomes it."""
+        _start_motion()
+        before = session.measurement()
+        # a relative move of 0 targets the current position without reading it first (no error from a delay)
+        session.call('move_by_dist', 0.0, utils.rpm2rad_per_sec(min(10.0, session.max_rpm)))
+        time.sleep(0.3)
+        after = session.measurement()
+        result = {'holding_at_deg': after['position_deg'], 'position_before_deg': before['position_deg'],
+                  'max_torque_nm': _read('read_max_torque', lambda v: round(v, 4))}
+        if abs(after['position_deg'] - before['position_deg']) > 2.0:
+            result['warning'] = ('The motor moved {:.1f} deg after the hold command: it may be moving to the previous '
+                                 'target instead of holding here. Call stop_motor if this is not intended.'
+                                 ).format(after['position_deg'] - before['position_deg'])
+        return result
 
     @server.tool(annotations=_ACTION)
     def hold_torque(torque_nm: float) -> dict:

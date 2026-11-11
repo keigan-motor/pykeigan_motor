@@ -194,3 +194,17 @@ def test_get_errors():
     result = str(call(server, 'get_errors', clear=True))
     assert 'KM_ERROR_INVALID_PARAM' in result and 'set_speed' in result
     assert not session.errors
+
+
+def test_hold_position_uses_relative_zero_move(env):
+    server, motor = env
+    motor.position = math.radians(-42)
+    with pytest.raises(ToolError, match='enable_motor'):
+        call(server, 'hold_position')
+    call(server, 'enable_motor')
+    call(server, 'update_settings', max_torque_nm=0.1)
+    result = str(call(server, 'hold_position'))
+    name, distance, speed = [c for c in motor.calls if c[0] == 'move_by_dist'][0]
+    assert distance == 0.0
+    assert '-42.0' in result and '0.1' in result
+    assert not any(c[0] == 'move_to_pos' for c in motor.calls)
