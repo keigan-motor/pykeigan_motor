@@ -13,7 +13,16 @@ from pykeigan.utils import *
 
 
 class USBController(base.Controller):
-    def __init__(self, port='/dev/ttyUSB0',debug_mode=False, baud=115200, reconnect=True):
+    def __init__(self, port='/dev/ttyUSB0',debug_mode=False, baud=115200, reconnect=True, open_timeout=None):
+        """
+        Open the serial port 'port' of the KeiganMotor.
+        'open_timeout' [sec]: if the port cannot be opened (wrong port name, USB not connected, etc.),
+        it is retried every 3 sec. None (default) retries forever. With a number, ConnectionError is raised
+        after that time.
+        'reconnect': reopen the port automatically when the USB connection is lost.
+        Note: commands do not raise errors when sending fails (the port is reopened if 'reconnect').
+        Use on_motor_connection_error_cb to be notified.
+        """
         self.DebugMode = debug_mode
         self.serial_buf = b''  # []
         self.setting_values = {}
@@ -29,7 +38,7 @@ class USBController(base.Controller):
         self.try_reconnect = False
         self.reconn_err_cnt = 0
         #try to connect to serial port
-        self.serial = self.__init_serial(port, baud)
+        self.serial = self.__init_serial(port, baud, open_timeout)
             
         self.on_motor_measurement_value_cb = False
         self.on_motor_imu_measurement_cb = False
@@ -52,24 +61,24 @@ class USBController(base.Controller):
             self._read_setting_value(0x47)#motor_info
             
         except Exception as e:
-            print('Precheck error: '+str(e))
-            print('\tattemping to reconnect...')
-            time.sleep(1)
-            print('...reconnecting...')
-            #self.disconnect()
-            #self.__init__()
+            # the port is open but the Motor did not answer: keep the controller usable (the Motor may answer later)
+            print('Precheck error: {} (no response from the KeiganMotor on {}. '
+                  'Check the port, the baud rate ({}) and the power of the Motor.)'.format(e, port, baud))
 
-    def __init_serial(self, port, baud):
+    def __init_serial(self, port, baud, open_timeout=None):
+        deadline = None if open_timeout is None else time.time() + open_timeout
         while True:
             try:
                 return serial.Serial(port, baud, 8, 'N', 1, None, False, True, write_timeout=0.1)
             except Exception as e:
-                print('Error occured while trying to connect to serial port. Please recheck you USB connection.')
-                print('attemping to reinit... ')
+                if deadline is not None and time.time() + 3 > deadline:
+                    raise ConnectionError('Could not open the serial port {}: {}'.format(port, e)) from e
+                print('Error occured while trying to connect to serial port {}: {}'.format(port, e))
+                print('Please recheck you USB connection. attemping to reinit... ')
                 time.sleep(3)
-    
+
     def is_connected(self):
-        return self.serial.isOpen()
+        return self.serial.is_open
     
     def connect(self):
         """
@@ -111,7 +120,7 @@ class USBController(base.Controller):
             time.sleep(1)
             try:
                 #self.connect()
-                rd = self.serial.read(self.serial.inWaiting())
+                rd = self.serial.read(self.serial.in_waiting)
                 self.try_reconnect=False
                 self.start_auto_serial_reading()
                 if (callable(self.on_motor_reconnection_cb)):
@@ -200,7 +209,7 @@ class USBController(base.Controller):
     def __read_serial_data(self):
         try:
             #print(self.serial.in_waiting, self.serial.inWaiting())
-            rd = self.serial.read(self.serial.inWaiting())
+            rd = self.serial.read(self.serial.in_waiting)
         except serial.SerialException as e:
             print('serial.SerialException in __read_serial_data: ', e)
             # There is no new data from serial port
@@ -225,45 +234,36 @@ class USBController(base.Controller):
             return e      
 
         self.serial_buf += rd
+        self.serial_buf = self._parse_frames(self.serial_buf)
 
-        """
-        ------------------------------
-        preamble detection logic
-        ------------------------------
-        """
-        bf_len = len(self.serial_buf)
-        is_pre = False
-        if (bf_len < 8):
-            return
+    PREAMBLE = b'\x00\x00\xaa\xaa'
+    POSTAMBLE = b'\x0d\x0a'
 
-        slice_idx = bf_len
-        success = False
+    def _parse_frames(self, buf):
+        """
+        Parse the received frames in 'buf' and return the unprocessed rest (an incomplete frame).
+        Frame: [preamble 00 00 AA AA][length][datatype][payload...][CRC (2)][postamble 0D 0A]
+        ('length' is the number of bytes from 'length' to the end of payload.)
+        The end of the frame is found by 'length': the payload (e.g. float values) may contain 0D 0A.
+        """
         i = 0
-
-        while i < bf_len-3:
-            # preamble detection
-            if not is_pre and self.serial_buf[i:i+4] == b'\x00\x00\xaa\xaa':
-                is_pre = True
-                slice_idx = i
-                for ie in range(i + 4, bf_len-3):
-                    # postamble detection
-                    if self.serial_buf[ie + 2:ie+4] == b'\x0d\x0a':
-                        payload = self.serial_buf[i + 4: ie]
-                        # CRC Verification
-                        buf_to_validate = self.serial_buf[i + 4: ie + 2]
-                        crc = calc_crc16(buf_to_validate)
-
-                        if self.is_check_sum_enabled:
-                            if calc_crc16(buf_to_validate) == 0:
-                                success = self.__serialdataParseSafe(payload)
-                        else:
-                            success = self.__serialdataParseSafe(payload)
-                        slice_idx = ie + 4
-                        i = ie + 3
-                        is_pre = False
-                        break
-            i += 1
-        self.serial_buf = self.serial_buf[slice_idx:]
+        while True:
+            start = i  # bytes before 'start' are processed
+            i = buf.find(self.PREAMBLE, i)
+            if i < 0:
+                return buf[max(start, len(buf) - 3):]  # keep a possibly incomplete preamble
+            if len(buf) < i + 5:
+                return buf[i:]  # wait for the length byte
+            n = buf[i + 4]
+            end = i + 4 + n + 2 + 2
+            if n < 3 or (len(buf) >= end and buf[end - 2:end] != self.POSTAMBLE):
+                i += 1  # not a frame (preamble pattern in the data): search the next one
+                continue
+            if len(buf) < end:
+                return buf[i:]  # wait for the rest of the frame
+            if not self.is_check_sum_enabled or calc_crc16(buf[i + 4:end - 2]) == 0:
+                self.__serialdataParseSafe(buf[i + 4:i + 4 + n])
+            i = end
 
     def __serialdataParseSafe(self, byte_array):
         try:
@@ -323,11 +323,8 @@ class USBController(base.Controller):
             elif comm == 0x3A:
                 self.setting_values[comm] = (bytes2uint8_t(payload[3:4]), bytes2uint8_t(payload[4:5]), bytes2uint8_t(payload[5:6])), time.time()
                 return True                             
-            elif comm == 0x46:
-                self.setting_values[comm] = payload[3:16].decode('utf-8'), time.time()
-                return True
-            elif comm == 0x47:
-                self.setting_values[comm] = payload[3:40].decode('utf-8'), time.time()
+            elif comm in (0x46, 0x47):  # device name / device info (variable length)
+                self.setting_values[comm] = payload[3:].decode('utf-8', 'replace').rstrip('\x00'), time.time()
                 return True
             elif comm == 0x9A:
                 bits_list = [int(n) for n in bin(bytes2uint8_t(payload[3:4]))[2:].zfill(8)]
@@ -345,22 +342,12 @@ class USBController(base.Controller):
             #print(payload)
             cmd = bytes2uint8_t(payload[2:3])
             err_code = bytes2uint32_t(payload[3:7])
-            try:
-                cmd_name = self.command_names[cmd]
-            except KeyError:
-                print('[Error info] No such command exists. cmd = ', hex(cmd))
-                return True
-            try:
-                err_desc = self.error_codes[err_code]
-                # print(err_code)
-            except KeyError:
-                print('[Error info] No such error_code exists. error_code = ', err_code)
-                return True
+            # unknown commands / error codes (e.g. newer firmware) are also passed to the callback
             self.__motor_log_value={'command_names':cmd,'error_codes':err_code}
             if (callable(self.on_motor_log_cb)):
                 self.on_motor_log_cb(self.__motor_log_value)
             if self.DebugMode:
-                print(self.__motor_log_value['command_names'],self.__motor_log_value['error_codes'])
+                print(self.command_names.get(cmd, hex(cmd)), self.error_codes.get(err_code, err_code))
             return True
         elif datatype == 0xB7: #Position coordinates of "readMotion" (Motor firmware ver>=2.0)
             motion_index=bytes2uint16_t(payload[0:2])
@@ -430,19 +417,24 @@ class USBController(base.Controller):
         elif time.time() - measurement_value['received_unix_time'] < validation_threshold:
             return measurement_value
         else:
-            if comm == 0xB4:
-                raise ValueError("No data within ", validation_threshold, " sec.")
-            if comm == 0xB5:
-                raise ValueError("No data within ", validation_threshold, " sec.")
+            raise ValueError("No data within {} sec.".format(validation_threshold))
 
     def _read_motion_value(self):
         return self.__read_motion_value
 
-    def read_motor_measurement(self):
-        return self.__read_measurement_value(0xB4)
+    def read_motor_measurement(self, validation_threshold=1.0):
+        """
+        Returns the latest motor measurement values notified within 'validation_threshold' sec.
+        Need to call enable_continual_motor_measurement() before calling this function.
+        """
+        return self.__read_measurement_value(0xB4, validation_threshold)
 
-    def read_imu_measurement(self):
-        return self.__read_measurement_value(0xB5)
+    def read_imu_measurement(self, validation_threshold=1.0):
+        """
+        Returns the latest IMU values notified within 'validation_threshold' sec.
+        Need to call enable_continual_imu_measurement() before calling this function.
+        """
+        return self.__read_measurement_value(0xB5, validation_threshold)
 
     def my_cleanup(self):
         self.finish_auto_serial_reading()
