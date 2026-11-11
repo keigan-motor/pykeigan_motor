@@ -20,6 +20,7 @@ current_dir = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(current_dir) + '/../')  # give 1st priority to the directory where pykeigan exists
 
 from ble_select import select_motor, connect_motor
+from pykeigan import blecontroller
 
 LEVEL_JA = {'good': '良好', 'fair': '注意 (使用できますが不安定になる可能性があります)',
             'poor': '不良 (使用は困難です)'}
@@ -31,7 +32,11 @@ ADVICE_JA = {
     'wifi_2.4ghz': 'この PC は 2.4GHz の Wi-Fi を使用しており、BLE と干渉します。'
                    '有線 LAN を使って Wi-Fi をオフにするか、5GHz の Wi-Fi を使用して下さい。'
                    '(Raspberry Pi: sudo nmcli radio wifi off)',
-    'crowded': '周囲に BLE 機器が多く、2.4GHz 帯が混雑しています。通信が不安定になる場合があります。',
+    'crowded': '周囲に BLE 機器が多く、2.4GHz 帯が混雑しています。これが原因の可能性があります。',
+    'not_found': 'モーターが見つかりません (アドバタイズしていません)。電源が入っているか、近くにあるかを確認し、'
+                 'モーターに接続しているアプリ (KMQuick など) や他の PC を終了して下さい。',
+    'connect_failed': 'モーターは見つかりましたが、接続できませんでした。電波干渉か電波が弱いことが原因の可能性が高いです。'
+                      '以下の助言を確認して下さい。',
     'reconnected': '接続のリトライまたは切断が発生しました。通信が不安定です。',
     'disconnected': '測定中に切断されました。PC とモーターを近づけて再接続して下さい。',
 }
@@ -66,7 +71,24 @@ address = args.address or select_motor()
 if address is None:
     sys.exit()
 
-dev = connect_motor(address)
+try:
+    dev = connect_motor(address)
+except ConnectionError as e:  # DeviceNotFoundError も含む
+    # 接続できない場合も、周囲の電波環境 (モーターのアドバタイズ・RSSI・Wi-Fi) は診断できる
+    print('接続できませんでした:', e)
+    print('電波環境を診断中 (接続せずにスキャン) ...')
+    r = blecontroller.diagnose_environment(address, error=e)
+    print('---------------------------------------')
+    print('判定      :', LEVEL_JA[r['level']])
+    print('モーター  :', '見つかりました' if r['found'] else '見つかりません')
+    print('RSSI      :', '-' if r['rssi'] is None else '{} dBm'.format(r['rssi']), '(アドバタイズ)')
+    print('周囲の BLE: {} 台'.format(r['advertisers']))
+    print('Wi-Fi     :', ', '.join('{} {}'.format(w['interface'], w['band'] or '(帯域不明)') for w in r['wifi'])
+          or '未使用')
+    for a in r['advice']:
+        print('  * ' + ADVICE_JA.get(a['code'], a['message']))
+    print('---------------------------------------')
+    sys.exit(1)
 print('診断中 ...')
 print_result(dev.diagnose_link())
 

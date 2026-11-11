@@ -177,6 +177,8 @@ To check whether the radio environment is good enough for BLE, use ``dev.diagnos
 It measures the RSSI, the response time and failures of the link, the number of BLE devices nearby and the Wi-Fi of the PC,
 and returns ``'level'`` (``'good'`` / ``'fair'`` / ``'poor'``) with advice for improvement.
 ``dev.link_stats()`` returns the response time and failures of the commands sent in normal use (no extra communication) for monitoring.
+If connecting fails, ``blecontroller.diagnose_environment(address, error=e)`` diagnoses without connecting:
+whether the Motor is advertising, its RSSI, the number of BLE devices nearby and the Wi-Fi of the PC (``ble-link-check.py`` does this automatically).
 
 BLE examples take the MAC address as the first argument. If omitted, they scan and let you select the Motor from the list (connect automatically if only one is found)::
 

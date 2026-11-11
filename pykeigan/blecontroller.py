@@ -222,6 +222,105 @@ def _worse(a, b):
     return a if _LEVELS.index(a) >= _LEVELS.index(b) else b
 
 
+class _Advice(object):
+    """Collects advice and the resulting level for diagnose_link() / diagnose_environment()."""
+
+    def __init__(self):
+        self.level = 'good'
+        self.items = []
+
+    def add(self, level, code, message):
+        self.level = _worse(self.level, level)
+        self.items.append({'code': code, 'message': message})
+
+    def signal(self, rssi):
+        """Advice on a weak signal. Returns the level of the signal."""
+        if rssi is None or rssi >= RSSI_GOOD:
+            return 'good'
+        level = 'poor' if rssi < RSSI_POOR else 'fair'
+        self.add(level, 'weak_signal',
+                 'The signal is weak (RSSI {} dBm). Move the PC closer to the Motor, and keep metal objects, '
+                 'walls and people out of the line between them.'.format(rssi))
+        return level
+
+    def wifi(self, wifi):
+        for w in wifi:
+            if w['band'] in ('2.4GHz', None):
+                # Raspberry Pi (Linux): on-board Wi-Fi and Bluetooth share one chip and 2.4GHz Wi-Fi makes BLE fail
+                # very often, so this alone makes the level 'fair'. Other PCs: advice only.
+                self.add('fair' if sys.platform.startswith('linux') else 'good', 'wifi_2.4ghz',
+                         'This PC is using {} Wi-Fi ({}{}), which interferes with BLE. Use wired LAN and turn Wi-Fi '
+                         'off, or use 5GHz Wi-Fi.'.format(w['band'] or 'probably 2.4GHz', w['interface'],
+                                                          ', ch {}'.format(w['channel']) if w['channel'] else ''))
+
+    def crowded(self, advertisers):
+        # advice only (does not change the level). Call it only when a problem was observed: offices often have
+        # dozens of BLE devices nearby while the link is still good.
+        if advertisers is not None and advertisers >= CROWDED_ADVERTISERS:
+            self.items.append({'code': 'crowded', 'message':
+                               'Many BLE devices ({}) are nearby: the 2.4GHz band is crowded, which may be the cause '
+                               'of the problem.'.format(advertisers)})
+
+
+def diagnose_environment(address=None, scan_time=5.0, error=None):
+    """
+    Diagnose the radio environment without connecting. Use it when BLEController(address) fails, to find the cause.
+    Scans 'scan_time' [sec] to check whether the Motor at 'address' is advertising and its RSSI, and counts BLE
+    devices nearby. Also checks the Wi-Fi of this PC (check_wifi()).
+    'error' (optional) is the exception raised by BLEController(address).
+    Returns dict:
+
+    - 'level': 'good' / 'fair' / 'poor' (same as diagnose_link())
+    - 'found': True if the Motor was found by the scan (None if 'address' is not given)
+    - 'rssi': median RSSI [dBm] of the advertisements of the Motor (None if not found)
+    - 'advertisers': number of BLE devices seen nearby
+    - 'wifi': check_wifi()
+    - 'advice': list of dict {'code', 'message'}. code: 'not_found', 'connect_failed', 'weak_signal',
+      'wifi_2.4ghz', 'crowded'
+    """
+    key = address.upper() if address else None
+
+    async def _scan():
+        seen = set()
+        rssis = []
+        found = [False]
+
+        def _on_detect(d, adv):
+            seen.add(d.address)
+            if key and d.address.upper() == key:
+                found[0] = True
+                _record_rssi(d.address, adv.rssi)
+                if adv.rssi is not None and adv.rssi > -127:
+                    rssis.append(adv.rssi)
+
+        async with BleakScanner(detection_callback=_on_detect):
+            await asyncio.sleep(scan_time)
+        _last_scan.update(advertisers=len(seen), time=time.time())
+        return len(seen), found[0], rssis
+
+    advertisers, found, rssis = _get_loop().call(_scan(), scan_time + 10.0)
+    if key is None:
+        found = None
+    rssi = int(statistics.median(rssis)) if rssis else None
+    wifi = check_wifi()
+
+    advice = _Advice()
+    if found is False:
+        advice.add('poor', 'not_found',
+                   'The Motor is not advertising: check that it is powered on and within range, and close apps '
+                   '(KMQuick etc.) or PCs connected to it (a connected Motor does not advertise).')
+    elif error is not None and not isinstance(error, DeviceNotFoundError):
+        advice.add('poor', 'connect_failed',
+                   'Connecting failed although the Motor is advertising ({!r}): radio interference or a weak '
+                   'signal is likely. See the other advice.'.format(error))
+    advice.signal(rssi)
+    advice.wifi(wifi)
+    if error is not None or advice.level != 'good':
+        advice.crowded(advertisers)
+    return {'level': advice.level, 'found': found, 'rssi': rssi, 'advertisers': advertisers, 'wifi': wifi,
+            'advice': advice.items}
+
+
 class BLEController(base.Controller):
     def __init__(self, addr, debug_mode=False, timeout=10.0, retries=2):
         """
@@ -427,23 +526,12 @@ class BLEController(base.Controller):
         wifi = check_wifi()
         stats.update(advertisers=advertisers, wifi=wifi)
 
-        level, advice = 'good', []
-
-        def add(lv, code, message):
-            nonlocal level
-            level = _worse(level, lv)
-            advice.append({'code': code, 'message': message})
-
+        advice = _Advice()
+        add = advice.add
         if not self.is_connected():
             add('poor', 'disconnected', 'The connection was lost during the measurement. '
                                         'Move the PC closer to the Motor and connect again.')
-        rssi = stats['rssi']
-        signal_level = 'good'
-        if rssi is not None and rssi < RSSI_GOOD:
-            signal_level = 'poor' if rssi < RSSI_POOR else 'fair'
-            add(signal_level, 'weak_signal',
-                'The signal is weak (RSSI {} dBm). Move the PC closer to the Motor, and keep metal objects, '
-                'walls and people out of the line between them.'.format(rssi))
+        signal_level = advice.signal(stats['rssi'])
         link_level = 'good'
         p95 = stats['latency_p95']
         if stats['failure_rate'] > FAILURE_POOR or (p95 is not None and p95 > LATENCY_POOR) or (probe and not latencies):
@@ -457,23 +545,15 @@ class BLEController(base.Controller):
                 'wireless cameras, other Bluetooth devices) or change the place.'.format(
                     stats['failures'], stats['requests'], '{:.0f} ms'.format(p95 * 1000) if p95 else '-'))
         elif link_level != 'good':
-            level = _worse(level, link_level)  # explained by the weak signal
-        for w in wifi:
-            if w['band'] in ('2.4GHz', None):
-                # Raspberry Pi (Linux): on-board Wi-Fi and Bluetooth share one chip and 2.4GHz Wi-Fi makes BLE fail
-                # very often, so this alone makes the level 'fair'. Other PCs: advice only.
-                add('fair' if sys.platform.startswith('linux') else 'good', 'wifi_2.4ghz',
-                    'This PC is using {} Wi-Fi ({}{}), which interferes with BLE. Use wired LAN and turn Wi-Fi off, '
-                    'or use 5GHz Wi-Fi.'.format(w['band'] or 'probably 2.4GHz', w['interface'],
-                                                 ', ch {}'.format(w['channel']) if w['channel'] else ''))
-        if advertisers is not None and advertisers >= CROWDED_ADVERTISERS:
-            advice.append({'code': 'crowded', 'message':
-                           'Many BLE devices ({}) are nearby: the 2.4GHz band is crowded and the link may become '
-                           'unstable.'.format(advertisers)})
-        if (stats['connect_attempts'] or 1) > 1 or stats['disconnects']:
+            advice.level = _worse(advice.level, link_level)  # explained by the weak signal
+        advice.wifi(wifi)
+        reconnected = (stats['connect_attempts'] or 1) > 1 or stats['disconnects']
+        if reconnected:
             add('fair', 'reconnected', 'The connection was unstable: {} attempts to connect, {} disconnections.'.format(
                 stats['connect_attempts'], stats['disconnects']))
-        stats.update(level=level, advice=advice)
+        if link_level != 'good' or reconnected or not self.is_connected():
+            advice.crowded(advertisers)  # only as a possible cause of an observed problem
+        stats.update(level=advice.level, advice=advice.items)
         return stats
 
     async def _count_advertisers(self, scan_time):
