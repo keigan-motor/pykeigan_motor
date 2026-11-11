@@ -15,6 +15,7 @@ Safety: speeds and torques above --max-rpm / --max-torque are rejected. The conn
 on the first tool call (not at startup), so the server starts even if the Motor is not connected.
 """
 import argparse
+import collections
 import math
 import sys
 import threading
@@ -25,7 +26,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
-from pykeigan import utils
+from pykeigan import errors, utils
 
 DEFAULT_MAX_RPM = 60.0
 DEFAULT_MAX_TORQUE = 0.3  # N.m
@@ -33,16 +34,25 @@ POLL_INTERVAL = 0.05  # sec. polling interval while waiting for arrival
 ARRIVAL_TOLERANCE_DEG = 1.0
 ARRIVAL_VELOCITY_RPM = 1.0
 LED_STATES = {'off': 0, 'solid': 1, 'flash': 2, 'dim': 3}
+CURVE_TYPES = {'none': 0, 'trapezoid': 1, 'direct': 10}
+SAFE_RUN_ACTIONS = {'free': 0, 'disable': 1, 'stop': 2, 'hold_position': 3}
+PID_SETTERS = {'q_current': ('set_qcurrent_p', 'set_qcurrent_i', 'set_qcurrent_d'),
+               'speed': ('set_speed_p', 'set_speed_i', 'set_speed_d'),
+               'position': ('set_position_p', 'set_position_i', 'set_position_d')}
 
 INSTRUCTIONS = """\
 Controls a KeiganMotor (smart servo motor).
-- Units: position/distance in degrees, speed in rpm, torque in N.m. Positive = counter clockwise.
+- Units: position/distance in degrees, speed in rpm, acceleration in rpm/s, torque in N.m. Positive = counter clockwise.
 - Call enable_motor before moving. stop_motor decelerates to zero and holds; free_motor removes the excitation.
 - Moving the real motor is a physical action: only move it when the user asked for it.
 - Speeds above {max_rpm} rpm and torques above {max_torque} N.m are rejected (server limits).
+- update_settings / set_pid_gains change the RAM only (lost on reboot). save_settings_to_flash makes them
+  permanent: call it only when the user asked to save.
+- If a command seems to have no effect, check get_errors.
 """
 
 _READ_ONLY = ToolAnnotations(read_only_hint=True, destructive_hint=False, open_world_hint=False)
+_DESTRUCTIVE = ToolAnnotations(read_only_hint=False, destructive_hint=True, open_world_hint=False)
 _ACTION = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False)
 _SAFE_ACTION = ToolAnnotations(read_only_hint=False, destructive_hint=False, idempotent_hint=True,
                                open_world_hint=False)
@@ -63,6 +73,7 @@ class MotorSession(object):
         self.dev = None
         self._lock = threading.RLock()  # held only for short operations (never while waiting for arrival)
         self._abort = threading.Event()  # set by stop / free / disable to end waiting moves
+        self.errors = collections.deque(maxlen=50)  # recent error logs from the Motor
 
     # -------------------- connection --------------------
     def connect(self, transport, target):
@@ -76,9 +87,19 @@ class MotorSession(object):
                 dev = blecontroller.BLEController(target, timeout=self.timeout)
             else:
                 raise ToolError("transport must be 'usb' or 'ble'")
+            dev.on_motor_error_cb = self._on_error
             dev.enable_continual_motor_measurement()
             self.dev, self.transport, self.target = dev, transport, target
             return dev
+
+    def _on_error(self, log):
+        """Error log notifications from the Motor (called from the receiving thread)."""
+        try:
+            text = errors.describe(log)
+        except Exception:
+            text = repr(log)
+        self.errors.append({'time': time.strftime('%H:%M:%S'), 'command': log.get('command_name'),
+                            'error': log.get('error_name'), 'message': text})
 
     def disconnect(self):
         with self._lock:
@@ -316,6 +337,235 @@ def create_server(session):
                 raise ToolError('LED colors must be 0-255')
         session.call('set_led', LED_STATES[state], red, green, blue)
         return 'ok'
+
+    # -------------------- settings --------------------
+    def _read(name, convert=None):
+        try:
+            value = session.call(name)
+        except ToolError as e:
+            return 'unavailable ({})'.format(e)
+        return convert(value) if convert else value
+
+    def _rpm(v):
+        return round(utils.rad_per_sec2rpm(v), 3)
+
+    def _curve_name(v):
+        return {n: k for k, n in CURVE_TYPES.items()}.get(v, v)
+
+    @server.tool(annotations=_READ_ONLY)
+    def read_settings() -> dict:
+        """Read the motion settings, PID gains, LED color and measurement intervals of the motor."""
+        session.device()
+        return {
+            'max_speed_rpm': _read('read_max_speed', _rpm),
+            'min_speed_rpm': _read('read_min_speed', _rpm),
+            'acc_rpm_per_s': _read('read_acc', _rpm),
+            'dec_rpm_per_s': _read('read_dec', _rpm),
+            'curve': _read('read_curve_type', _curve_name),
+            'max_torque_nm': _read('read_max_torque', lambda v: round(v, 4)),
+            'pid': {loop: {'p': _read('read_{}_p'.format(r)), 'i': _read('read_{}_i'.format(r)),
+                           'd': _read('read_{}_d'.format(r))}
+                    for loop, r in (('q_current', 'qcurrent'), ('speed', 'speed'), ('position', 'position'))},
+            'pos_control_threshold': _read('read_pos_control_threshold'),
+            'own_color_rgb': _read('read_own_color'),
+            'motor_measurement_interval_code': _read('read_motor_measurement_interval'),
+            'imu_measurement_interval_code': _read('read_imu_measurement_interval'),
+            'server_limits': {'max_rpm': session.max_rpm, 'max_torque_nm': session.max_torque},
+        }
+
+    @server.tool(annotations=_SAFE_ACTION)
+    def update_settings(max_torque_nm: float | None = None, max_speed_rpm: float | None = None,
+                        min_speed_rpm: float | None = None, acc_rpm_per_s: float | None = None,
+                        dec_rpm_per_s: float | None = None,
+                        curve: Literal['trapezoid', 'none', 'direct'] | None = None) -> dict:
+        """Change motion settings of the motor (only the given ones). RAM only: lost on reboot unless
+        save_settings_to_flash is called. max_torque_nm limits the torque of every motion.
+        curve: 'trapezoid' = accelerate / decelerate with acc / dec, 'none' = no motion control,
+        'direct' = direct position control. Returns the values read back."""
+        values = {'max_torque_nm': max_torque_nm, 'max_speed_rpm': max_speed_rpm, 'min_speed_rpm': min_speed_rpm,
+                  'acc_rpm_per_s': acc_rpm_per_s, 'dec_rpm_per_s': dec_rpm_per_s}
+        for key, v in values.items():
+            if v is not None and (not math.isfinite(v) or v < 0):
+                raise ToolError('{} must be a positive number'.format(key))
+        if max_torque_nm is not None:
+            session.check_torque(max_torque_nm)
+        for v in (max_speed_rpm, min_speed_rpm):
+            if v is not None:
+                session.check_rpm(v)
+        result = {}
+        if max_torque_nm is not None:
+            session.call('set_max_torque', max_torque_nm)
+            result['max_torque_nm'] = _read('read_max_torque', lambda v: round(v, 4))
+        for key, setter, reader in (('max_speed_rpm', 'set_max_speed', 'read_max_speed'),
+                                    ('min_speed_rpm', 'set_min_speed', 'read_min_speed'),
+                                    ('acc_rpm_per_s', 'set_acc', 'read_acc'),
+                                    ('dec_rpm_per_s', 'set_dec', 'read_dec')):
+            if values[key] is not None:
+                session.call(setter, utils.rpm2rad_per_sec(values[key]))
+                result[key] = _read(reader, _rpm)
+        if curve is not None:
+            session.call('set_curve_type', CURVE_TYPES[curve])
+            result['curve'] = _read('read_curve_type', _curve_name)
+        if not result:
+            raise ToolError('No setting given')
+        return result
+
+    @server.tool(annotations=_SAFE_ACTION)
+    def set_pid_gains(loop: Literal['q_current', 'speed', 'position'], p: float | None = None,
+                      i: float | None = None, d: float | None = None) -> dict:
+        """Change the PID gains of a control loop (only the given ones; RAM only).
+        Wrong gains can make the motor oscillate: change them in small steps. reset_all_pid restores the defaults."""
+        given = [(name, v) for name, v in zip(PID_SETTERS[loop], (p, i, d)) if v is not None]
+        if not given:
+            raise ToolError('Give at least one of p, i, d')
+        for name, v in given:
+            if not math.isfinite(v) or v < 0:
+                raise ToolError('Gains must be positive numbers')
+            session.call(name, v)
+        r = 'qcurrent' if loop == 'q_current' else loop
+        return {'loop': loop, 'p': _read('read_{}_p'.format(r)), 'i': _read('read_{}_i'.format(r)),
+                'd': _read('read_{}_d'.format(r))}
+
+    @server.tool(annotations=_SAFE_ACTION)
+    def reset_all_pid() -> str:
+        """Restore all the PID gains to the firmware defaults (RAM)."""
+        session.call('reset_all_pid')
+        return 'PID gains reset to the defaults'
+
+    @server.tool(annotations=_SAFE_ACTION)
+    def set_own_color(red: int, green: int, blue: int) -> str:
+        """Set the motor's own LED color (shown while idle). Colors are 0-255. RAM only unless saved."""
+        for c in (red, green, blue):
+            if not 0 <= c <= 255:
+                raise ToolError('Colors must be 0-255')
+        session.call('set_own_color', red, green, blue)
+        return 'ok'
+
+    @server.tool(annotations=_SAFE_ACTION)
+    def set_safe_run(enabled: bool, timeout_ms: int = 1000,
+                     stop_action: Literal['free', 'disable', 'stop', 'hold_position'] = 'stop') -> str:
+        """Watchdog: if the motor receives no command for 'timeout_ms', it does 'stop_action'
+        (useful when the controlling PC may hang or the link may drop)."""
+        if timeout_ms < 0:
+            raise ToolError('timeout_ms must be >= 0')
+        session.call('set_safe_run_settings', int(enabled), timeout_ms, SAFE_RUN_ACTIONS[stop_action])
+        return 'safe run {}'.format('enabled ({} ms, {})'.format(timeout_ms, stop_action) if enabled else 'disabled')
+
+    @server.tool(annotations=_DESTRUCTIVE)
+    def save_settings_to_flash() -> str:
+        """Save all the current settings (registers) to the flash memory so that they survive a reboot.
+        Overwrites the saved settings: call it only when the user asked to save. Takes about 3 s."""
+        session.call('save_all_registers')
+        return 'saved to flash'
+
+    @server.tool(annotations=_DESTRUCTIVE)
+    def reset_settings_to_default() -> str:
+        """Reset all the settings (registers) to the firmware defaults (RAM). The saved settings in flash are
+        kept unless save_settings_to_flash is called afterwards."""
+        session.call('reset_all_registers')
+        return 'settings reset to the firmware defaults (not saved to flash)'
+
+    # -------------------- IMU --------------------
+    @server.tool(annotations=_READ_ONLY)
+    def read_imu() -> dict:
+        """Acceleration (g), angular velocity (deg/s) and temperature (deg C) of the motor's IMU."""
+        session.call('enable_continual_imu_measurement')
+        try:
+            deadline = time.time() + 2.0
+            while True:
+                try:
+                    v = session.call('read_imu_measurement')
+                    break
+                except ToolError:
+                    if time.time() > deadline:
+                        raise
+                    time.sleep(0.1)
+        finally:
+            try:
+                session.call('disable_continual_imu_measurement')  # keep the link free for motor measurement
+            except ToolError:
+                pass
+        return {'accel_g': [round(v['accel_x'], 4), round(v['accel_y'], 4), round(v['accel_z'], 4)],
+                'gyro_dps': [round(utils.rad2deg(v[k]), 3) for k in ('gyro_x', 'gyro_y', 'gyro_z')],
+                'temperature_c': round(v['temp'], 2)}
+
+    # -------------------- taskset / teaching / queue --------------------
+    @server.tool(annotations=_DESTRUCTIVE)
+    def taskset(action: Literal['start_recording', 'stop_recording', 'run', 'stop', 'erase', 'erase_all'],
+                index: int = 0, repeat: int = 1) -> str:
+        """Tasksets: sequences of commands stored in the motor's flash (index 0-49 on KM-1).
+        start_recording -> send commands (use move tools with wait=False, and queue 'wait' for pauses)
+        -> stop_recording. run plays it 'repeat' times. erase / erase_all delete stored tasksets."""
+        if action in ('run',):
+            _start_motion()
+        calls = {'start_recording': ('start_recording_taskset', index),
+                 'stop_recording': ('stop_recording_taskset',),
+                 'run': ('start_doing_taskset', index, repeat),
+                 'stop': ('stop_doing_taskset',),
+                 'erase': ('erase_taskset', index),
+                 'erase_all': ('erase_all_tasksets',)}
+        session.call(*calls[action])
+        return 'taskset {} (index {})'.format(action, index)
+
+    @server.tool(annotations=_DESTRUCTIVE)
+    def teaching_motion(action: Literal['start_teaching', 'stop_teaching', 'play', 'stop_playing',
+                                        'erase', 'erase_all'],
+                        index: int = 0, time_ms: int = 10000, repeat: int = 1) -> str:
+        """Direct teaching: record the motion of the shaft turned by hand, then play it back
+        (index 0-19, recording up to 65408 ms). start_teaching records for 'time_ms' while the user turns
+        the shaft by hand. play plays it 'repeat' times."""
+        if action == 'start_teaching' and not 0 < time_ms <= 65408:
+            raise ToolError('time_ms must be 1-65408')
+        if action == 'play':
+            _start_motion()
+        calls = {'start_teaching': ('start_teaching_motion', index, time_ms),
+                 'stop_teaching': ('stop_teaching_motion',),
+                 'play': ('start_playback_motion', index, repeat, 0),
+                 'stop_playing': ('stop_playback_motion',),
+                 'erase': ('erase_motion', index),
+                 'erase_all': ('erase_all_motions',)}
+        session.call(*calls[action])
+        return 'motion {} (index {})'.format(action, index)
+
+    @server.tool(annotations=_ACTION)
+    def queue(action: Literal['pause', 'resume', 'clear', 'wait'], wait_ms: int = 1000) -> str:
+        """The motor executes motion commands from a queue. pause / resume it, clear the pending commands
+        (while paused), or 'wait' to insert a pause of 'wait_ms' (e.g. between moves of a taskset)."""
+        calls = {'pause': ('pause_queue',), 'resume': ('resume_queue',), 'clear': ('clear_queue',),
+                 'wait': ('wait_queue', wait_ms)}
+        session.call(*calls[action])
+        return 'queue {}'.format(action)
+
+    # -------------------- diagnostics --------------------
+    @server.tool(annotations=_READ_ONLY)
+    def get_errors(clear: bool = False) -> list[dict]:
+        """Recent error logs reported by the motor (newest last), with the cause and the remedy.
+        Check this when a command seems to have no effect."""
+        items = list(session.errors)
+        if clear:
+            session.errors.clear()
+        return items
+
+    @server.tool(annotations=_READ_ONLY)
+    def ble_link_quality(diagnose: bool = False) -> dict:
+        """BLE only. Statistics of the link (latency, failures, RSSI). diagnose=True also measures the response
+        time and scans the radio environment (takes a few seconds) and gives a level and advice."""
+        dev = session.device()
+        if session.transport != 'ble':
+            raise ToolError('Connected over {}, not BLE'.format(session.transport))
+        with session._lock:
+            try:
+                return dev.diagnose_link() if diagnose else dev.link_stats()
+            except Exception as e:
+                raise ToolError('BLE diagnosis failed: {}'.format(e)) from e
+
+    @server.tool(annotations=_DESTRUCTIVE)
+    def reboot_motor() -> str:
+        """Reboot the motor. Settings not saved to flash are lost. The server reconnects on the next tool call."""
+        session.call('reboot')
+        session.disconnect()
+        time.sleep(1.0)
+        return 'rebooting; the next tool call reconnects'
 
     return server
 

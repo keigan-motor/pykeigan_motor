@@ -27,9 +27,21 @@ class FakeMotor(object):
         self.calls.append(('disconnect',))
 
     def __getattr__(self, name):
+        if name.startswith('_'):
+            raise AttributeError(name)
+        registers = self.__dict__.setdefault('registers', {})
+
         def record(*args):
             self.calls.append((name,) + args)
+            if name.startswith('set_') and args:
+                registers[name[4:]] = args[0]
+            elif name.startswith('read_'):
+                return registers.get(name[5:], 0.0)
         return record
+
+    def read_imu_measurement(self):
+        return {'accel_x': 0.0, 'accel_y': 0.0, 'accel_z': 1.0, 'temp': 30.0,
+                'gyro_x': math.radians(10), 'gyro_y': 0.0, 'gyro_z': 0.0, 'received_unix_time': 0}
 
     def enable_action(self):
         self.calls.append(('enable_action',))
@@ -136,3 +148,49 @@ def test_not_connected_message():
     server = mcp_server.create_server(mcp_server.MotorSession())
     with pytest.raises(ToolError, match="connect"):
         call(server, 'read_measurement')
+
+
+def test_update_settings_units_and_limits(env):
+    server, motor = env
+    result = str(call(server, 'update_settings', max_torque_nm=0.1, max_speed_rpm=20, acc_rpm_per_s=60,
+                      curve='trapezoid'))
+    assert ('set_max_torque', 0.1) in motor.calls
+    assert motor.registers['max_speed'] == pytest.approx(20 * 2 * math.pi / 60)
+    assert motor.registers['curve_type'] == 1
+    assert '20.0' in result  # read back in rpm
+    with pytest.raises(ToolError, match='max-torque'):
+        call(server, 'update_settings', max_torque_nm=0.5)
+    with pytest.raises(ToolError, match='max-rpm'):
+        call(server, 'update_settings', max_speed_rpm=100)
+    with pytest.raises(ToolError, match='No setting'):
+        call(server, 'update_settings')
+
+
+def test_read_settings_and_pid(env):
+    server, motor = env
+    call(server, 'set_pid_gains', loop='speed', p=12.5)
+    assert ('set_speed_p', 12.5) in motor.calls
+    result = str(call(server, 'read_settings'))
+    assert 'max_torque_nm' in result and '12.5' in result
+
+
+def test_imu_taskset_queue_errors(env):
+    server, motor = env
+    assert '10.0' in str(call(server, 'read_imu'))
+    assert ('disable_continual_imu_measurement',) in motor.calls
+    call(server, 'taskset', action='start_recording', index=3)
+    call(server, 'queue', action='wait', wait_ms=500)
+    assert ('start_recording_taskset', 3) in motor.calls
+    assert ('wait_queue', 500) in motor.calls
+    with pytest.raises(ToolError, match='enable_motor'):
+        call(server, 'taskset', action='run', index=3)
+
+
+def test_get_errors():
+    session = mcp_server.MotorSession()
+    server = mcp_server.create_server(session)
+    session._on_error({'identifier': 0, 'command_names': 0x58, 'error_codes': 6, 'info': 0,
+                       'command_name': 'set_speed', 'error_name': 'KM_ERROR_INVALID_PARAM'})
+    result = str(call(server, 'get_errors', clear=True))
+    assert 'KM_ERROR_INVALID_PARAM' in result and 'set_speed' in result
+    assert not session.errors
