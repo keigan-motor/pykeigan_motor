@@ -347,10 +347,23 @@ def create_server(session):
     @server.tool(annotations=_SAFE_ACTION)
     def preset_position(degrees: float = 0.0) -> dict:
         """Redefine the current position as 'degrees' (0 = set the origin here). The motor does not move.
-        Not saved to flash: lost when the motor reboots."""
+        The motor adds the change to its position offset (see read_position_offset).
+        The offset is kept in RAM: lost when the motor reboots (saved to flash only from motor firmware 3.00)."""
+        offset_before = _offset_deg()
         session.call('preset_position', utils.deg2rad(degrees))
         time.sleep(0.1)
-        return session.measurement()
+        return dict(session.measurement(), position_offset_deg=_offset_deg(),
+                    position_offset_before_deg=offset_before)
+
+    def _offset_deg():
+        return _read('read_position_offset', lambda v: round(utils.rad2deg(v), 3))
+
+    @server.tool(annotations=_READ_ONLY)
+    def read_position_offset() -> dict:
+        """Where the origin is: the position offset (register 0x5B) accumulated by preset_position, in degrees.
+        0 means no preset since power-on (the position is the motor's own coordinate). Use this for
+        "what is the current origin?". Returns the current position too."""
+        return dict(session.measurement(), position_offset_deg=_offset_deg())
 
     # -------------------- LED --------------------
     @server.tool(annotations=_SAFE_ACTION)
@@ -392,6 +405,7 @@ def create_server(session):
                            'd': _read('read_{}_d'.format(r))}
                     for loop, r in (('q_current', 'qcurrent'), ('speed', 'speed'), ('position', 'position'))},
             'pos_control_threshold': _read('read_pos_control_threshold'),
+            'position_offset_deg': _offset_deg(),
             'own_color_rgb': _read('read_own_color'),
             'motor_measurement_interval_code': _read('read_motor_measurement_interval'),
             'imu_measurement_interval_code': _read('read_imu_measurement_interval'),

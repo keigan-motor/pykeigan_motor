@@ -208,3 +208,19 @@ def test_hold_position_uses_relative_zero_move(env):
     assert distance == 0.0
     assert '-42.0' in result and '0.1' in result
     assert not any(c[0] == 'move_to_pos' for c in motor.calls)
+
+
+def test_preset_and_read_position_offset(env):
+    server, motor = env
+
+    def preset(position):  # the motor adds the change to the offset (register 0x5B)
+        motor.calls.append(('preset_position', position))
+        offset = motor.registers.get('position_offset', 0.0)
+        motor.registers['position_offset'] = offset + position - motor.position
+        motor.position = position
+    motor.preset_position = preset
+    motor.position = math.radians(30)
+    assert '0.0' in str(call(server, 'read_position_offset'))
+    result = str(call(server, 'preset_position', degrees=0))
+    assert "'position_offset_deg': -30.0" in result or '"position_offset_deg": -30.0' in result
+    assert '-30.0' in str(call(server, 'read_position_offset'))
