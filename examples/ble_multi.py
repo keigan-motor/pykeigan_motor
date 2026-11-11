@@ -32,20 +32,28 @@ def led_color(i):
     return LED_COLORS[i % len(LED_COLORS)]
 
 
-def select_motors(scan_sec=5.0):
+SCAN_SEC = 10.0  # モーターのアドバタイズは数秒に1回しか受信できないことがあるため、単体用より長めにする
+
+
+def select_motors(scan_sec=SCAN_SEC):
     """
     スキャンして見つかったモーターを一覧表示し、接続するモーターを番号で選択させる。
         0,1   : 番号をカンマ(またはスペース)区切りで指定 (指定した順に並ぶ)
         a     : 見つかったすべて
-        r     : 再スキャン
+        r     : 再スキャン (前回までに見つかったモーターも一覧に残る)
         q     : 中止
     選択したモーターの MAC アドレスのリストを返す (中止した場合は空のリスト)。
     """
+    known = {}  # address -> {'name', 'address', 'rssi'}。再スキャンしても消さずに追加していく
     while True:
         print("During scanning at", scan_sec, "sec")
-        found = blecontroller.scan(scan_sec)
+        for km in blecontroller.scan(scan_sec):
+            known[km['address']] = km  # 見つかったものは RSSI を更新
+        found = list(known.values())  # 番号が変わらないよう、見つかった順に並べる
         if not found:
             print("KeiganMotor が見つかりませんでした")
+        else:
+            print("{} motors found (r で再スキャンすると、見つかっていないモーターが追加されることがあります)".format(len(found)))
         for i, km in enumerate(found):
             print("  [{}] {} : {} (RSSI {})".format(i, km['name'], km['address'], km['rssi']))
         inp = input('Connect:[numbers e.g. 0,1 / a=all] Rescan:[r] Quit:[q] >>').strip().lower()
@@ -65,7 +73,7 @@ def select_motors(scan_sec=5.0):
             print("番号を 0,1 のように入力して下さい")
 
 
-def get_addresses(addresses=None, scan_sec=5.0):
+def get_addresses(addresses=None, scan_sec=SCAN_SEC):
     """引数で MAC アドレスが指定されていればそれを、無ければスキャンして選択したものを返す"""
     return list(addresses) if addresses else select_motors(scan_sec)
 

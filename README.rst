@@ -181,7 +181,8 @@ Each controller has its own connection and callbacks (all controllers share one 
       m.on_motor_measurement_value_cb = lambda v, i=i: print(i, v['position'])
       m.enable_continual_motor_measurement()
 
-The multi-motor examples take MAC addresses as arguments. If omitted, they scan and let you select Motors by numbers (e.g. ``0,1``, or ``a`` for all)::
+The multi-motor examples take MAC addresses as arguments. If omitted, they scan (10 s) and let you select Motors by numbers (e.g. ``0,1``, or ``a`` for all).
+In a crowded BLE environment one scan may miss some Motors; press ``r`` to rescan, and newly found Motors are added to the list (the numbers of found Motors are kept)::
 
     python3 examples/ble-multi-simple-connection.py xx:xx:xx:xx:xx:xx yy:yy:yy:yy:yy:yy
     python3 examples/ble-multi-simple-connection.py
