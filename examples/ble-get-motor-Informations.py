@@ -35,23 +35,23 @@ if os.name == 'nt':
 
 running = True
 
+def show(row, label, read):
+    # 読み出しに失敗しても (一時的な電波の悪化など) 表示を止めずに次の周期で再試行する
+    try:
+        text = '{} {} '.format(label, read())
+    except Exception as e:
+        text = '{} (read failed: {!r}) '.format(label, e)
+    print("\033[{};2H\033[2K".format(row))
+    sys.stdout.flush()
+    print(text)
+    sys.stdout.flush()
+
 def get_motor_informations():
     while running:
         if dev:
-            print("\033[3;2H\033[2K")
-            sys.stdout.flush()
-            print('status {} '.format(dev.read_status()))
-            sys.stdout.flush()
-
-            print("\033[8;2H\033[2K")
-            sys.stdout.flush()
-            print('measurement {} '.format(dev.read_motor_measurement()))
-            sys.stdout.flush()
-
-            print("\033[12;2H\033[2K")
-            sys.stdout.flush()
-            print('imu_measurement {} '.format(dev.read_imu_measurement()))
-            sys.stdout.flush()
+            show(3, 'status', dev.read_status)
+            show(8, 'measurement', dev.read_motor_measurement)
+            show(12, 'imu_measurement', dev.read_imu_measurement)
         sleep(0.5)
 
 #接続
@@ -88,5 +88,6 @@ input('Exit:[key input] >>')
 running = False
 res.result()
 dev.set_led(1, 100, 100, 100)
+dev.disable_continual_motor_measurement()
 dev.disable_continual_imu_measurement()
 dev.disconnect()

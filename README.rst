@@ -24,11 +24,14 @@ The USB serial functions should work on Windows and Mac too.
 Requirements
 ------------------
 
-- python >= 3.5 (recommended)
+- python >= 3.5 (USB only)
+- python >= 3.8 for BLE (python >= 3.10 recommended). The minimum version is required by bleak:
+  pip installs the latest bleak that supports your python (3.8: bleak 0.22, 3.9: bleak 1.x, 3.10 or later: bleak 2.x / 3.x).
+  Raspberry Pi OS Bookworm (python 3.11) and Bullseye (python 3.9) are supported. Buster (python 3.7) is not supported for BLE.
 - pyserial >= 3.4
-- bleak >= 0.22 (BLE support. python >= 3.8, Windows 10+ / Linux with BlueZ >= 5.55)
+- bleak >= 0.22 (BLE support. Windows 10+ / Linux with BlueZ >= 5.55)
 
-**NOTE) This library runs on python 3.5 or later.**  
+**NOTE) This library runs on python 3.5 or later (BLE: python 3.8 or later).**  
 
 **If you want to use it with python 2.7 in ROS, etc., please use 2.2.0.**  
 
@@ -246,6 +249,18 @@ If the Motor is not found by scanning:
 
 Release Notes
 ------------------
+Release 2.5.0
+
+- BLE: replaced bluepy with bleak. BLE now works on Windows and Linux (including Raspberry Pi 4/5) without sudo. python >= 3.8 is required for BLE.
+- BLE: ``blecontroller.scan()``, connection retries (``BLEController(addr, timeout=10.0, retries=2)``), faster connection on Windows,
+  ``DeviceNotFoundError``, notifications for measurement values / logs / events (callbacks same as USBController).
+- BLE: link diagnostics (``diagnose_link()``, ``link_stats()``, ``blecontroller.diagnose_environment()``, ``blecontroller.check_wifi()``).
+- BLE: ``read_imu_measurement_interval()``, ``read_motor_measurement_interval()`` and ``read_baud_rate()`` are supported.
+- BLE: ``read_motor_measurement()`` / ``read_imu_measurement()`` return the latest notified value (within ``validation_threshold`` sec) or read the value directly.
+- BLE (incompatible changes): removed ``BLEController.dev`` (bluepy Peripheral), ``start_command_log_capturing()`` and ``print_command_log()``.
+  ``start_debug()`` only prints the command logs received by notifications. Commands raise ``ConnectionError`` while disconnected, and ``TimeoutError`` on timeout.
+- New BLE examples (scan & select, multiple Motors, link check) and usb-offset-position-control.py.
+
 Release 2.4.0
 
 - Added support both python2 and 3 support

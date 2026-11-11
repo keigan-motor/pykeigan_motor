@@ -17,6 +17,7 @@ methods from inside them.
 import asyncio
 import atexit
 import collections
+import concurrent.futures
 import glob
 import re
 import statistics
@@ -24,6 +25,7 @@ import subprocess
 import sys
 import threading
 import time
+import weakref
 
 from bleak import BleakClient, BleakScanner
 
@@ -50,7 +52,9 @@ CHAR_UUIDS = {
 }
 
 FLOAT_VALUE_COMMS = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x5B]
-VALID_COMMS = [0x05, 0x2C, 0x3A, 0x46, 0x47, 0x9A] + FLOAT_VALUE_COMMS
+# curve type / motor measurement interval / IMU measurement interval / baud rate
+UINT8_VALUE_COMMS = [0x05, 0x2C, 0x3C, 0xC3]
+VALID_COMMS = UINT8_VALUE_COMMS + [0x3A, 0x46, 0x47, 0x9A] + FLOAT_VALUE_COMMS
 
 
 class _LoopThread(object):
@@ -66,12 +70,26 @@ class _LoopThread(object):
         self.loop.run_forever()
 
     def call(self, coro, timeout=None):
+        """
+        Run 'coro' in the event loop and wait for the result.
+        Raises TimeoutError (the builtin one) after 'timeout' sec. On timeout (or KeyboardInterrupt etc.) the
+        coroutine is cancelled, so that it does not keep running in the background (e.g. a connection completed
+        after the caller gave up, or a write holding the write lock).
+        """
         if threading.current_thread() is self.thread:
             # called from a callback (on_motor_*_cb): waiting here would block the loop itself
             coro.close()
             raise RuntimeError('BLEController commands cannot be called from callbacks. '
                                'Store the value in the callback and send commands from another thread.')
-        return asyncio.run_coroutine_threadsafe(coro, self.loop).result(timeout)
+        fut = asyncio.run_coroutine_threadsafe(coro, self.loop)
+        try:
+            return fut.result(timeout)
+        except concurrent.futures.TimeoutError:  # not the builtin TimeoutError before python 3.11
+            fut.cancel()
+            raise TimeoutError('BLE operation timed out ({} sec)'.format(timeout)) from None
+        except BaseException:
+            fut.cancel()
+            raise
 
 
 _shared_loop = None
@@ -88,7 +106,16 @@ LATENCY_POOR = 0.5  # sec. longer than this: 'poor'
 FAILURE_FAIR = 0.0  # ratio of failed requests. more than this: 'fair'
 FAILURE_POOR = 0.05  # more than this: 'poor'
 CROWDED_ADVERTISERS = 30  # number of BLE devices nearby regarded as a crowded 2.4GHz environment
+RSSI_MAX_AGE = 60.0  # sec. RSSI of an advertisement received longer than this before connecting is not used
 _LEVELS = ('good', 'fair', 'poor')
+
+_controllers = weakref.WeakSet()  # BLEControllers to disconnect at exit (weak: does not keep them alive)
+
+
+@atexit.register
+def _disconnect_all():
+    for c in list(_controllers):
+        c._cleanup()
 
 
 def _get_loop():
@@ -159,19 +186,49 @@ async def _find_device(address, timeout):
     return await BleakScanner.find_device_by_filter(_match, timeout=timeout)
 
 
+def _decode(out):
+    """Decode the output of a command. Windows commands (netsh) may output in the OEM code page (e.g. cp932)."""
+    encodings = ['utf-8'] + (['oem', 'mbcs'] if sys.platform == 'win32' else [])
+    for enc in encodings:
+        try:
+            return out.decode(enc)
+        except (UnicodeDecodeError, LookupError):
+            pass
+    return out.decode('utf-8', 'replace')
+
+
 def _run(cmd, timeout=3.0):
     try:
-        return subprocess.run(cmd, capture_output=True, timeout=timeout, check=False).stdout.decode('utf-8', 'replace')
+        return _decode(subprocess.run(cmd, capture_output=True, timeout=timeout, check=False).stdout)
     except Exception:
         return ''
 
 
-def _band(freq=None, channel=None):
+def _band(freq=None, channel=None, ghz=None):
+    """'2.4GHz' / '5GHz' / '6GHz' from the frequency [MHz], the band [GHz] or the channel (None if unknown)."""
     if freq:
         return '2.4GHz' if freq < 3000 else '5GHz' if freq < 5925 else '6GHz'
+    if ghz:
+        return '2.4GHz' if ghz < 3 else '5GHz' if ghz < 5.925 else '6GHz'
     if channel:
+        # 6GHz also uses channels 1-233: use the channel only when the band is not reported
         return '2.4GHz' if channel <= 14 else '5GHz'
     return None
+
+
+def _parse_netsh_interfaces(out):
+    """Parse the output of 'netsh wlan show interfaces' (English / Japanese). Returns the connected interfaces."""
+    result = []
+    for block in re.split(r'^\s*(?=(?:Name|名前)\s*:)', out, flags=re.M)[1:]:
+        name = re.match(r'(?:Name|名前)\s*:\s*(.+)', block)
+        m = re.search(r'^\s*(?:Channel|チャネル)\s*:\s*(\d+)', block, re.M)
+        if not m:
+            continue  # 'Channel' appears only while connected
+        ch = int(m.group(1))
+        b = re.search(r'^\s*(?:Band|バンド)\s*:\s*([\d.]+)\s*GHz', block, re.M)  # Windows 11
+        result.append({'interface': name.group(1).strip(), 'channel': ch,
+                       'band': _band(ghz=float(b.group(1))) if b else _band(channel=ch)})
+    return result
 
 
 def check_wifi():
@@ -202,14 +259,8 @@ def check_wifi():
                 freq = float(m.group(1)) if m else None
             result.append({'interface': iface, 'channel': ch, 'band': _band(freq=freq)})
     elif sys.platform == 'win32':
-        # the output of netsh is localized (English / Japanese supported). 'Channel' appears only while connected.
-        out = _run(['netsh', 'wlan', 'show', 'interfaces'])
-        for block in re.split(r'^\s*(?=(?:Name|名前)\s*:)', out, flags=re.M)[1:]:
-            name = re.match(r'(?:Name|名前)\s*:\s*(.+)', block)
-            m = re.search(r'(?:Channel|チャネル)\s*:\s*(\d+)', block)
-            if m:
-                ch = int(m.group(1))
-                result.append({'interface': name.group(1).strip(), 'channel': ch, 'band': _band(channel=ch)})
+        # the output of netsh is localized (English / Japanese supported)
+        result = _parse_netsh_interfaces(_run(['netsh', 'wlan', 'show', 'interfaces']))
     return result
 
 
@@ -329,7 +380,8 @@ class BLEController(base.Controller):
         'timeout' is the time limit [sec] of each scan / connection attempt.
         'retries' is the number of additional connection attempts when connecting fails
         (BLE connections sometimes fail to be established, e.g. Raspberry Pi with 2.4GHz Wi-Fi).
-        Raises DeviceNotFoundError if the Motor is not found, ConnectionError if connecting fails.
+        Raises DeviceNotFoundError if the Motor is not found, ConnectionError if connecting fails
+        (including when the whole connection process times out).
         """
         self.address = addr
         self.timeout = timeout
@@ -337,6 +389,7 @@ class BLEController(base.Controller):
         self.DebugMode = debug_mode
         self.setting_values = {}
         self._setting_events = {}
+        self._setting_locks = {}
         self._motor_measurement_value = None
         self._imu_measurement_value = None
 
@@ -352,7 +405,7 @@ class BLEController(base.Controller):
         self._write_lock = None
         self._closing = False
         self._worker = _get_loop()
-        atexit.register(self._cleanup)
+        _controllers.add(self)
         self.connect()
         self.set_interface(self.interface_type['BLE'] + self.interface_type['BTN'])
 
@@ -361,11 +414,25 @@ class BLEController(base.Controller):
     # ------------------------------------------------------------
     def connect(self):
         """
-        Establish the BLE connection.
+        Establish the BLE connection (disconnects first if already connected).
+        Raises DeviceNotFoundError if the Motor is not found, ConnectionError if connecting fails.
         """
-        # each attempt may take up to 'timeout' for scanning and 'timeout' for connecting
-        attempts = self.retries + 1
-        self._worker.call(self._connect(), attempts * (2 * self.timeout + 5.0) + 10.0)
+        if self.is_connected():
+            self.disconnect()
+        try:
+            self._worker.call(self._connect(), self._connect_time_limit())
+        except TimeoutError as e:
+            # the connection process was cancelled by _LoopThread.call(): no connection is left behind
+            raise ConnectionError('Timed out connecting to KeiganMotor {}'.format(self.address)) from e
+
+    def _connect_time_limit(self):
+        """Upper limit [sec] of _connect(). Normally it finishes much earlier (each step has its own timeout)."""
+        t = self.timeout
+        # each attempt: scan + connect + discarding the failed client (each up to 'timeout') + 0.5 sec interval
+        limit = (self.retries + 1) * (3 * t + 0.5)
+        if sys.platform == 'win32':
+            limit += 2 * t  # direct connection (connect + discard) tried first
+        return limit + 5.0
 
     async def _connect(self):
         self._write_lock = asyncio.Lock()
@@ -407,15 +474,16 @@ class BLEController(base.Controller):
             self.address, attempts, last_error)) from last_error
 
     async def __connect_device(self, device, direct=False):
-        self._client = BleakClient(device, disconnected_callback=self._on_disconnected)
+        self._client = BleakClient(device, disconnected_callback=self._on_disconnected, timeout=self.timeout)
         try:
             if direct:
                 # bleak (WinRT) scans only to get the 48-bit Bluetooth address; give it directly.
+                # (private attribute of bleak: if it is missing, LookupError -> connect after scanning)
                 backend = getattr(self._client, '_backend', None)
                 if backend is None or not hasattr(backend, '_device_info'):
                     raise LookupError('direct connection is not supported by this bleak version')
                 backend._device_info = int(self.address.replace(':', ''), 16)
-            await self._client.connect(timeout=self.timeout)
+            await self._client.connect()
             await self._client.start_notify(CHAR_UUIDS['motor_measurement'], self._on_motor_measurement)
             await self._client.start_notify(CHAR_UUIDS['motor_imu_measurement'], self._on_imu_measurement)
             await self._client.start_notify(CHAR_UUIDS['motor_rx'], self._on_rx)
@@ -443,7 +511,7 @@ class BLEController(base.Controller):
         """
         self._closing = True
         if self.is_connected():
-            self._worker.call(self._client.disconnect(), self.timeout)
+            self._worker.call(self._client.disconnect(), self.timeout + 1.0)
 
     def _cleanup(self):
         try:
@@ -478,14 +546,26 @@ class BLEController(base.Controller):
             samples = [x for x in samples if x[0] >= since]
         latencies = [rtt for _, rtt in samples if rtt is not None]
         failures = len(samples) - len(latencies)
-        rssi = _scanned_rssi.get(self.address.upper())
         return {'requests': len(samples), 'failures': failures,
                 'failure_rate': failures / len(samples) if samples else 0.0,
                 'latency_median': statistics.median(latencies) if latencies else None,
                 'latency_p95': _percentile(latencies, 0.95) if latencies else None,
                 'latency_max': max(latencies) if latencies else None,
                 'connect_attempts': self._link['connect_attempts'], 'disconnects': self._link['disconnects'],
-                'rssi': rssi[0] if rssi else None}
+                'rssi': self._rssi()}
+
+    def _rssi(self):
+        """
+        RSSI [dBm] of the advertisement received just before connecting (within RSSI_MAX_AGE sec), or None.
+        A connected Motor does not advertise, so the RSSI is not updated while connected. It is unknown
+        when connected without scanning (Windows direct connection).
+        """
+        rssi = _scanned_rssi.get(self.address.upper())
+        if rssi is None:
+            return None
+        value, t = rssi
+        since = self._link.get('connected_time') or time.time()
+        return value if t >= since - RSSI_MAX_AGE else None
 
     def diagnose_link(self, count=30, scan_time=3.0):
         """
@@ -497,8 +577,8 @@ class BLEController(base.Controller):
         - 'level': 'good' / 'fair' (usable but unstable; improvement recommended) / 'poor' (hard to use)
         - 'advertisers': number of BLE devices seen nearby (None if not scanned)
         - 'wifi': check_wifi()
-        - 'advice': list of dict {'code', 'message'}. code: 'weak_signal', 'interference', 'wifi_2.4ghz',
-          'crowded', 'reconnected', 'disconnected'
+        - 'advice': list of dict {'code', 'message'}. code: 'weak_signal', 'interference', 'slow_response'
+          (link problem while the RSSI is unknown), 'wifi_2.4ghz', 'crowded', 'reconnected', 'disconnected'
 
         Thresholds are the module constants RSSI_GOOD, RSSI_POOR, LATENCY_FAIR, LATENCY_POOR, FAILURE_FAIR,
         FAILURE_POOR and CROWDED_ADVERTISERS.
@@ -510,8 +590,7 @@ class BLEController(base.Controller):
                 probe.append(None)
                 break
             try:
-                self._read_char('motor_measurement', timeout=1.0)
-                probe.append(self._requests[-1][1])
+                probe.append(self._read_char('motor_measurement', timeout=1.0, with_rtt=True)[1])
             except Exception:
                 probe.append(None)
             time.sleep(0.02)
@@ -538,7 +617,14 @@ class BLEController(base.Controller):
             link_level = 'poor'
         elif stats['failure_rate'] > FAILURE_FAIR or (p95 is not None and p95 > LATENCY_FAIR):
             link_level = 'fair'
-        if link_level != 'good' and signal_level == 'good':
+        if link_level != 'good' and stats['rssi'] is None:
+            add(link_level, 'slow_response',
+                'Responses are delayed or lost (failures {}/{}, 95% latency {}). The signal strength is unknown '
+                '(connected without scanning): a weak signal or radio interference is likely. Move the PC closer to '
+                'the Motor and keep away from 2.4GHz devices (Wi-Fi routers, microwave ovens, other Bluetooth '
+                'devices). To measure the signal strength, scan (blecontroller.scan()) before connecting.'.format(
+                    stats['failures'], stats['requests'], '{:.0f} ms'.format(p95 * 1000) if p95 else '-'))
+        elif link_level != 'good' and signal_level == 'good':
             add(link_level, 'interference',
                 'Responses are delayed or lost (failures {}/{}, 95% latency {}) although the signal is not weak: '
                 'radio interference is likely. Keep away from 2.4GHz devices (Wi-Fi routers, microwave ovens, '
@@ -591,22 +677,35 @@ class BLEController(base.Controller):
         if characteristics not in ('motor_tx', 'motor_led', 'motor_rx'):
             raise ValueError('Invalid Characteristics')
         tx_buf = val + calc_crc16_bytes(val)
-        self._timed(lambda: self._worker.call(self._write(CHAR_UUIDS[characteristics], tx_buf), self.timeout))
+        client = self._connected_client()
+        self._timed(lambda: self._worker.call(self._write(client, CHAR_UUIDS[characteristics], tx_buf),
+                                              self.timeout))
+
+    def _connected_client(self):
+        """The current client. Raises ConnectionError if not connected (not counted as a failed request)."""
+        client = self._client
+        if client is None or not client.is_connected:
+            raise ConnectionError('KeiganMotor {} is not connected'.format(self.address))
+        return client
 
     def _timed(self, func):
-        """Run a request (write with response / read) and record its round trip time for link_stats()."""
+        """
+        Run a request (write with response / read) and record its round trip time for link_stats().
+        Returns (result, round trip time [sec]).
+        """
         t = time.perf_counter()
         try:
             result = func()
         except BaseException:
             self._requests.append((time.time(), None))
             raise
-        self._requests.append((time.time(), time.perf_counter() - t))
-        return result
+        rtt = time.perf_counter() - t
+        self._requests.append((time.time(), rtt))
+        return result, rtt
 
-    async def _write(self, uuid, data):
+    async def _write(self, client, uuid, data):
         async with self._write_lock:
-            await self._client.write_gatt_char(uuid, data, response=True)
+            await client.write_gatt_char(uuid, data, response=True)
 
     # ------------------------------------------------------------
     # notifications (called in the event loop thread)
@@ -658,7 +757,7 @@ class BLEController(base.Controller):
         value = payload[3:]
         if comm in FLOAT_VALUE_COMMS:
             val = bytes2float(value[0:4])
-        elif comm in (0x05, 0x2C):  # curve type / motor measurement interval (uint8)
+        elif comm in UINT8_VALUE_COMMS:
             val = bytes2uint8_t(value[0:1])
         elif comm == 0x3A:
             val = bytes2uint8_t(value[0:1]), bytes2uint8_t(value[1:2]), bytes2uint8_t(value[2:3])
@@ -691,10 +790,13 @@ class BLEController(base.Controller):
     # ------------------------------------------------------------
     # read
     # ------------------------------------------------------------
-    def _read_char(self, name, timeout=None):
+    def _read_char(self, name, timeout=None, with_rtt=False):
+        """Read a characteristic. Returns bytes, or (bytes, round trip time [sec]) if 'with_rtt'."""
         timeout = self.timeout if timeout is None else timeout
-        return bytes(self._timed(lambda: self._worker.call(
-            asyncio.wait_for(self._client.read_gatt_char(CHAR_UUIDS[name]), timeout), timeout + 1.0)))
+        client = self._connected_client()
+        data, rtt = self._timed(lambda: self._worker.call(
+            asyncio.wait_for(client.read_gatt_char(CHAR_UUIDS[name]), timeout), timeout + 1.0))
+        return (bytes(data), rtt) if with_rtt else bytes(data)
 
     def read_motor_measurement(self, validation_threshold=0.5):
         """
@@ -726,12 +828,14 @@ class BLEController(base.Controller):
     def _read_setting_value(self, comm, timeout=1.0):
         if comm not in VALID_COMMS:
             raise ValueError("Unknown Command")
-        event = threading.Event()
-        self._setting_events[comm] = event
-        try:
-            self.read_register(comm)
-            if not event.wait(timeout):
-                raise ValueError("No data received")
-            return self.setting_values[comm][0]
-        finally:
-            self._setting_events.pop(comm, None)
+        # one read at a time per register: concurrent reads of the same register would share one event
+        with self._setting_locks.setdefault(comm, threading.Lock()):
+            event = threading.Event()
+            self._setting_events[comm] = event
+            try:
+                self.read_register(comm)
+                if not event.wait(timeout):
+                    raise ValueError("No data received")
+                return self.setting_values[comm][0]
+            finally:
+                self._setting_events.pop(comm, None)
