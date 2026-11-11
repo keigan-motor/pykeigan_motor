@@ -168,9 +168,16 @@ def create_server(session):
     # -------------------- connection --------------------
     @server.tool(annotations=_READ_ONLY)
     def list_serial_ports() -> list[dict]:
-        """List serial ports (USB connection candidates). KeiganMotor appears as a USB-serial (FTDI) device."""
+        """List serial ports (USB connection candidates).
+        KeiganMotor uses an FTDI USB-serial chip: vid 0403 ('likely_keigan_motor': true). Bluetooth ports are not motors."""
         from serial.tools import list_ports
-        return [{'port': p.device, 'description': p.description, 'hwid': p.hwid} for p in list_ports.comports()]
+        ports = []
+        for p in list_ports.comports():
+            vid = '{:04X}'.format(p.vid) if p.vid is not None else None
+            pid = '{:04X}'.format(p.pid) if p.pid is not None else None
+            ports.append({'port': p.device, 'description': p.description, 'vid': vid, 'pid': pid,
+                          'likely_keigan_motor': vid == '0403'})
+        return ports
 
     @server.tool(annotations=_READ_ONLY)
     def scan_ble(timeout_s: float = 5.0) -> list[dict]:
