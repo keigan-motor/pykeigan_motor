@@ -32,6 +32,11 @@ def led_color(i):
     return LED_COLORS[i % len(LED_COLORS)]
 
 
+
+def _print_found(km):
+    # スキャン中に見つけたモーターをその場で表示する (バックグラウンドのスレッドから呼ばれる)
+    print("  ({:4.1f}s) found {}".format(km['elapsed'], km['name']), flush=True)
+
 SCAN_SEC = 10.0  # モーターのアドバタイズは数秒に1回しか受信できないことがあるため、単体用より長めにする
 
 
@@ -46,8 +51,8 @@ def select_motors(scan_sec=SCAN_SEC):
     """
     known = {}  # address -> {'name', 'address', 'rssi'}。再スキャンしても消さずに追加していく
     while True:
-        print("During scanning at", scan_sec, "sec")
-        for km in blecontroller.scan(scan_sec):
+        print("During scanning at", scan_sec, "sec ...")
+        for km in blecontroller.scan(scan_sec, on_found=_print_found):
             known[km['address']] = km  # 見つかったものは RSSI を更新
         found = list(known.values())  # 番号が変わらないよう、見つかった順に並べる
         if not found:

@@ -11,6 +11,11 @@ sys.path.insert(0, str(current_dir) + '/../') # give 1st priority to the directo
 from pykeigan import blecontroller
 
 
+
+def _print_found(km):
+    # スキャン中に見つけたモーターをその場で表示する (バックグラウンドのスレッドから呼ばれる)
+    print("  ({:4.1f}s) found {}".format(km['elapsed'], km['name']), flush=True)
+
 def select_motor(scan_sec=5.0, auto_select_single=True):
     """
     スキャンして見つかったモーターを一覧表示し、番号で選択させる。
@@ -19,8 +24,8 @@ def select_motor(scan_sec=5.0, auto_select_single=True):
         番号: 接続   r: 再スキャン   q: 中止
     """
     while True:
-        print("During scanning at", scan_sec, "sec")
-        found = blecontroller.scan(scan_sec)
+        print("During scanning at", scan_sec, "sec ...")
+        found = blecontroller.scan(scan_sec, on_found=_print_found)
         if found and len(found) == 1 and auto_select_single:
             km = found[0]
             print("connect to", km['name'], ":", km['address'])

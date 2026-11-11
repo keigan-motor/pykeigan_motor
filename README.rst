@@ -155,7 +155,7 @@ BLE examples take the MAC address as the first argument. If omitted, they scan a
     Connect:[number] Rescan:[r] Quit:[q] >>
 
 - examples/KM1Scan.py
-    Scan Keigan Motors and print the names and MAC addresses (argument: scan seconds).
+    Scan Keigan Motors and print the names and MAC addresses (argument: scan seconds, default 10). Found Motors are printed immediately with the remaining time.
 - examples/ble-scanner-connection.py
     Scan, select and connect to the Motor, and blink the LED. Press [s] to rescan and switch to another Motor (the connected Motor is disconnected before scanning, because a connected Motor does not advertise).
 - examples/ble-simple-connection.py

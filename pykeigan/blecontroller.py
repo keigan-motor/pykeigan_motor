@@ -78,22 +78,40 @@ def _get_loop():
         return _shared_loop
 
 
-def scan(timeout=5.0):
+def scan(timeout=5.0, on_found=None):
     """
     Scan KeiganMotors nearby.
     Returns a list of dict {'name', 'address', 'rssi'} sorted by signal strength.
     On Windows / Linux no administrator (sudo) privileges are required.
+    'on_found' (optional) is called with the dict (plus 'elapsed' in sec) when each Motor is found for the first time.
+    It is called from a background thread.
     """
+    found = {}  # address -> dict
+
+    def _on_detect(d, adv):
+        name = adv.local_name or d.name or ''
+        uuids = [u.lower() for u in adv.service_uuids]
+        if not (SERVICE_UUID in uuids or name.startswith('KM-1')):
+            return
+        _scanned_devices[d.address.upper()] = d
+        km = found.get(d.address)
+        if km is None:
+            km = found[d.address] = {'name': name, 'address': d.address, 'rssi': adv.rssi}
+            if callable(on_found):
+                try:
+                    on_found(dict(km, elapsed=time.time() - t0))
+                except Exception:
+                    pass  # errors in the user's callback must not stop the scan
+        else:
+            km['rssi'] = adv.rssi
+            km['name'] = name or km['name']
+
     async def _scan():
-        found = await BleakScanner.discover(timeout=timeout, return_adv=True)
-        result = []
-        for d, adv in found.values():
-            name = adv.local_name or d.name or ''
-            uuids = [u.lower() for u in adv.service_uuids]
-            if SERVICE_UUID in uuids or name.startswith('KM-1'):
-                _scanned_devices[d.address.upper()] = d
-                result.append({'name': name, 'address': d.address, 'rssi': adv.rssi})
-        return sorted(result, key=lambda x: -x['rssi'])
+        async with BleakScanner(detection_callback=_on_detect):
+            await asyncio.sleep(timeout)
+        return sorted(found.values(), key=lambda x: -x['rssi'])
+
+    t0 = time.time()
     return _get_loop().call(_scan(), timeout + 10.0)
 
 
