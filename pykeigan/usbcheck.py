@@ -7,8 +7,10 @@ Checks step by step where the USB connection fails:
   2. the serial port can be opened
   3. the Motor answers (device name / device info)
 
-  pykeigan-usb-check            check all KeiganMotors visible to the OS
-  pykeigan-usb-check COM3       check one port
+Usage::
+
+    pykeigan-usb-check            # check all KeiganMotors visible to the OS
+    pykeigan-usb-check COM3       # check one port
 """
 import argparse
 import contextlib
