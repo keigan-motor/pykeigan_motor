@@ -384,7 +384,8 @@ def create_server(session):
     def preset_position(degrees: float = 0.0) -> dict:
         """Redefine the current position as 'degrees' (0 = set the origin here). The motor does not move.
         The motor adds the change to its position offset (see read_position_offset).
-        The offset is kept in RAM: lost when the motor reboots (saved to flash only from motor firmware 3.00)."""
+        The offset is kept in RAM: lost when the motor reboots, unless saved with save_settings_to_flash
+        (supported from motor firmware 2.82B)."""
         offset_before = _offset_deg()
         session.call('preset_position', utils.deg2rad(degrees))
         time.sleep(0.1)
