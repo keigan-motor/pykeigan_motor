@@ -91,8 +91,12 @@ To use your Keigan Motor through USB serial, you need to add R/W permission to i
 If the connection does not work, run the USB check. It shows step by step whether the Motor is
 visible to the OS, whether the port opens, and whether the Motor answers::
 
-    pykeigan-usb-check            # all KeiganMotors found
-    pykeigan-usb-check COM3       # one port  (or: python -m pykeigan.usbcheck COM3)
+    pykeigan-usb-check                    # all KeiganMotors found
+    pykeigan-usb-check COM3               # one port (Linux: /dev/ttyUSB0)
+    pykeigan-usb-check COM3 --baud 1000000  # if the Motor's baud rate was changed (default 115200)
+    python -m pykeigan.usbcheck COM3      # the same, if the command is not found
+
+The exit code is 0 if every checked Motor answers, 1 otherwise. ``pykeigan-usb-check --help`` shows the options.
 
 If no KeiganMotor (FTDI, VID 0403) is visible to the OS, it is almost always a USB hardware problem:
 connect the Motor directly to the PC without a USB hub, try another (data-capable) USB cable,

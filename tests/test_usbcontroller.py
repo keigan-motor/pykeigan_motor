@@ -228,3 +228,81 @@ def test_usbcheck_open_failure(monkeypatch):
     lines = []
     assert usbcheck.check('NO_SUCH_PORT_FOR_TEST', out=lines.append) is False
     assert any('[2/3]' in l and 'NG' in l for l in lines)
+
+
+class _FakeSerialModule:
+    """Stands in for the serial module in usbcheck: the port always opens."""
+    class Serial:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def close(self):
+            pass
+
+
+def _fake_motor(answer=True, seen=None):
+    class FakeUSBController:
+        def __init__(self, port, baud=115200, reconnect=True, open_timeout=None):
+            if seen is not None:
+                seen.append((port, baud))
+
+        def read_device_name(self):
+            if not answer:
+                raise ConnectionError('No data received')
+            return 'KM-1S TEST#000'
+
+        def read_device_info(self):
+            return '0:Keigan Inc.,1:KM-1S,2:1,3:2.82B'
+
+        def disconnect(self):
+            pass
+    return FakeUSBController
+
+
+def test_usbcheck_motor_answers(monkeypatch):
+    from pykeigan import usbcheck
+    _fake_ports(monkeypatch, [_Port('COM5'), _Port('COM6')])
+    monkeypatch.setattr(usbcheck, 'serial', _FakeSerialModule)
+    seen = []
+    monkeypatch.setattr(usbcheck, 'USBController', _fake_motor(seen=seen))
+    lines = []
+    assert usbcheck.check(out=lines.append) is True  # all KeiganMotors found are checked
+    assert [p for p, _ in seen] == ['COM5', 'COM6']
+    assert any('[3/3]' in l and 'OK' in l for l in lines)
+    assert any('KM-1S TEST#000' in l for l in lines)
+    assert 'Result: 2/2 Motor(s) OK' in lines
+
+
+def test_usbcheck_motor_does_not_answer(monkeypatch):
+    from pykeigan import usbcheck
+    _fake_ports(monkeypatch, [_Port('COM5')])
+    monkeypatch.setattr(usbcheck, 'serial', _FakeSerialModule)
+    monkeypatch.setattr(usbcheck, 'USBController', _fake_motor(answer=False))
+    lines = []
+    assert usbcheck.check('COM5', out=lines.append) is False
+    assert any('[3/3]' in l and 'NG' in l and 'No data received' in l for l in lines)
+    assert any('--baud' in l for l in lines)
+    assert 'Result: 0/1 Motor(s) OK' in lines
+
+
+@pytest.mark.parametrize('answer, code', [(True, 0), (False, 1)])
+def test_usbcheck_main_exit_code_and_args(monkeypatch, capsys, answer, code):
+    from pykeigan import usbcheck
+    _fake_ports(monkeypatch, [_Port('COM5')])
+    monkeypatch.setattr(usbcheck, 'serial', _FakeSerialModule)
+    seen = []
+    monkeypatch.setattr(usbcheck, 'USBController', _fake_motor(answer=answer, seen=seen))
+    with pytest.raises(SystemExit) as e:
+        usbcheck.main(['COM5', '--baud', '1000000'])
+    assert e.value.code == code
+    assert seen == [('COM5', 1000000)]
+    assert '== COM5 ==' in capsys.readouterr().out
+
+
+def test_usbcheck_main_no_device_exit_code(monkeypatch, capsys):
+    from pykeigan import usbcheck
+    _fake_ports(monkeypatch, [])
+    with pytest.raises(SystemExit) as e:
+        usbcheck.main([])
+    assert e.value.code == 1
+    assert 'No KeiganMotor USB device' in capsys.readouterr().out
