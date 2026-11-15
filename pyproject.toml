@@ -1,0 +1,4 @@
+[build-system]
+# The metadata is in setup.py. setuptools >= 77 for the SPDX license expression (license='MIT').
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"

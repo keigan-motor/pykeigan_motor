@@ -53,17 +53,19 @@ Install from source::
     sudo apt install git
     git clone https://github.com/keigan-motor/pykeigan_motor
     cd pykeigan_motor
-    python setup.py install
-    # and to install BLE Support
-    pip install .[ble]
+    pip install .
+    # or with BLE support
+    pip install ".[ble]"
 
 Install from PyPI::
 
-    pip3 install pykeigan-motor
-    # or to install BLE Support
-    pip3 install pykeigan-motor[ble]
+    pip install pykeigan-motor             # USB
+    pip install "pykeigan-motor[ble]"      # USB and BLE
+    pip install "pykeigan-motor[ble,mcp]"  # and the MCP server (python >= 3.10)
 
-- NOTE) Use pip instead of pip3 in case of Python2.x or Windows OS.
+- NOTE) Use pip3 instead of pip if pip points to python 2 (pip on python 2.7 installs 2.4.0, the last version for python 2).
+
+Documentation: https://docs.keigan-motor.com/apiDocument/pykeigan_motor/
 
 USB Serial
 -----------------
