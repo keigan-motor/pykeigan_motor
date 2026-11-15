@@ -291,6 +291,15 @@ Release 3.0.0
 - USB: ``on_motor_log_cb`` also receives unknown commands / error codes.
 - USB: ``USBController(port, open_timeout=None)``: raises ``ConnectionError`` after ``open_timeout`` sec if the port cannot be opened (default: retry forever as before).
 - USB: ``read_motor_measurement()`` / ``read_imu_measurement()`` take ``validation_threshold`` (same as BLE).
+- USB: when the port cannot be opened, the cause is shown (Motor not visible to the OS = USB cable / hub / power,
+  wrong port name, port used by another program). ``diagnose_port()``, ``find_keigan_ports()``.
+  Warns when the connection is lost 3 times within 60 sec.
+- USB: new command ``pykeigan-usb-check`` (``python -m pykeigan.usbcheck``) checks the connection step by step.
+- ``read_position_offset()``: the offset set by ``preset_position()`` (register 0x5B).
+  It survives a reboot after ``save_all_registers()`` from motor firmware 2.82B.
+- Clear ``MissingDependencyError`` messages (with the install command) when pyserial / bleak / mcp are missing or too old.
+  BLE-only use no longer needs pyserial.
+- Packaging: ``python_requires >= 3.5`` (pip on python 2.7 keeps installing 2.4.0), MIT license file in the package, ``pyproject.toml``.
 - Python 3.9+: replaced ``Thread.isAlive()`` (removed in Python 3.9), so the port is closed at exit.
 - ``read_motion()``: the completion callback is registered before sending the command.
 - New BLE examples (scan & select, multiple Motors, link check) and usb-offset-position-control.py.
