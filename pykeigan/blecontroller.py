@@ -27,6 +27,7 @@ import weakref
 from pykeigan._deps import require_bleak
 require_bleak()
 from bleak import BleakClient, BleakScanner  # noqa: E402
+from bleak.exc import BleakError  # noqa: E402
 
 from pykeigan import controller as base
 from pykeigan.utils import *
@@ -52,7 +53,7 @@ CHAR_UUIDS = {
 
 FLOAT_VALUE_COMMS = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21, 0x5B]
 # curve type / motor measurement interval / IMU measurement interval / baud rate
-UINT8_VALUE_COMMS = [0x05, 0x2C, 0x3C, 0xC3]
+UINT8_VALUE_COMMS = [0x05, 0x2C, 0x32, 0x3C, 0xC3]
 VALID_COMMS = UINT8_VALUE_COMMS + [0x3A, 0x46, 0x47, 0x9A] + FLOAT_VALUE_COMMS
 
 
@@ -419,7 +420,14 @@ class BLEController(base.Controller):
         Raises DeviceNotFoundError if the Motor is not found, ConnectionError if connecting fails.
         """
         if self.is_connected():
-            self.disconnect()
+            try:
+                self.disconnect()
+            except Exception as e:
+                # e.g. just after the link was lost, bleak may still report "connected" and fail to disconnect.
+                # The old client is dropped anyway, so a new connection can be made.
+                if self.DebugMode:
+                    print('disconnecting the previous connection failed: {!r}'.format(e))
+        self._client = None
         try:
             self._worker.call(self._connect(), self._connect_time_limit())
         except TimeoutError as e:
@@ -697,6 +705,11 @@ class BLEController(base.Controller):
         t = time.perf_counter()
         try:
             result = func()
+        except BleakError as e:
+            # e.g. BleakGATTProtocolError while the link is being lost (the Motor was powered off):
+            # raise ConnectionError like the other connection problems
+            self._requests.append((time.time(), None))
+            raise ConnectionError('BLE request to KeiganMotor {} failed: {!r}'.format(self.address, e)) from e
         except BaseException:
             self._requests.append((time.time(), None))
             raise

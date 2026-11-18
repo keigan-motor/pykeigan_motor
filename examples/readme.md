@@ -64,6 +64,15 @@ MACアドレスを引数で指定できます。省略した場合はスキャ�
         $python3 ble-get-motor-Informations.py
         $python3 ble-get-motor-Informations.py xx:xx:xx:xx:xx:xx
 
++ ble-safety-settings-reconnect.py
+
+    安全設定 (レジスタ 0x32) の使い方と、BLE 切断時の自動再接続。5rpm で回しながら位置を表示し、切断されたらつながるまで再接続して動作を再開します。再接続後に、モーターが再起動したかどうかを表示します。Ctrl+C で終了。
+    
+    bit0 (`BIT_SAFETY_BLE_DISCONNECT_RESET`, デフォルト ON) は「BLE 切断時にモーターを再起動する」設定です。`--no-reboot` で OFF にすると、切断されても再起動せずに次の接続を待ちます。`--save` で flash に保存します (付けない場合は終了時に元に戻します)。
+    
+        $python3 ble-safety-settings-reconnect.py
+        $python3 ble-safety-settings-reconnect.py xx:xx:xx:xx:xx:xx --no-reboot
+
 + ble_select.py
 
     BLE サンプル共通の「スキャンして選択」処理 (直接は実行しません)。

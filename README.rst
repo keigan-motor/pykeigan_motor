@@ -216,6 +216,9 @@ BLE examples take the MAC address as the first argument. If omitted, they scan a
     Rotate the Motor forward (10 s), reverse (10 s), stop with torque and free.
 - examples/ble-get-motor-Informations.py
     Acquire the status, speed, position, torque and IMU values of the Motor.
+- examples/ble-safety-settings-reconnect.py
+    Read / change the safety settings (``set_safety_settings()``, reboot when the BLE connection is lost) and
+    reconnect automatically after a disconnection. ``--no-reboot``: the Motor does not reboot and waits for the reconnection.
 - examples/ble_select.py
     Common "scan and select" helper used by the BLE examples (``from ble_select import select_motor``).
 
@@ -264,6 +267,13 @@ If the Motor is not found by scanning:
 
 Release Notes
 ------------------
+Unreleased
+
+- ``set_safety_settings(flag)`` / ``read_safety_settings()`` (register 0x32, USB / BLE).
+  bit0 (``Controller.BIT_SAFETY_BLE_DISCONNECT_RESET``): reboot the motor when the BLE connection is lost (default: ON).
+- MCP: ``set_reboot_on_ble_disconnect`` tool, and ``reboot_on_ble_disconnect`` in ``read_settings``.
+- New example ``examples/ble-safety-settings-reconnect.py`` (safety settings and automatic reconnection).
+
 Release 3.0.0
 
 - MCP server: ``pykeigan-mcp`` lets AI assistants (Claude Code, Claude Desktop, etc.) control a Motor over USB or BLE.

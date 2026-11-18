@@ -49,6 +49,7 @@ CONNECT_HINTS = {
 # setting number of set_baud_rate() / read_baud_rate() -> USB (UART) baud rate
 BAUD_RATES = {0: 115200, 1: 230400, 2: 250000, 3: 460800, 4: 921600, 5: 1000000}
 SAFE_RUN_ACTIONS = {'free': 0, 'disable': 1, 'stop': 2, 'hold_position': 3}
+BIT_SAFETY_BLE_DISCONNECT_RESET = 0x01  # safety settings (register 0x32) bit0
 PID_SETTERS = {'q_current': ('set_qcurrent_p', 'set_qcurrent_i', 'set_qcurrent_d'),
                'speed': ('set_speed_p', 'set_speed_i', 'set_speed_d'),
                'position': ('set_position_p', 'set_position_i', 'set_position_d')}
@@ -427,6 +428,9 @@ def create_server(session):
     def _curve_name(v):
         return {n: k for k, n in CURVE_TYPES.items()}.get(v, v)
 
+    def _ble_disconnect_reboot(v):
+        return bool(int(v) & BIT_SAFETY_BLE_DISCONNECT_RESET)
+
     @server.tool(annotations=_READ_ONLY)
     def read_settings() -> dict:
         """Read the motion settings, PID gains, LED color and measurement intervals of the motor."""
@@ -447,6 +451,7 @@ def create_server(session):
             'motor_measurement_interval_code': _read('read_motor_measurement_interval'),
             'imu_measurement_interval_code': _read('read_imu_measurement_interval'),
             'usb_baud_rate': _read('read_baud_rate', lambda v: BAUD_RATES.get(v, v)),
+            'reboot_on_ble_disconnect': _read('read_safety_settings', _ble_disconnect_reboot),
             'server_limits': {'max_rpm': session.max_rpm, 'max_torque_nm': session.max_torque},
         }
 
@@ -517,6 +522,19 @@ def create_server(session):
                 raise ToolError('Colors must be 0-255')
         session.call('set_own_color', red, green, blue)
         return 'ok'
+
+    @server.tool(annotations=_SAFE_ACTION)
+    def set_reboot_on_ble_disconnect(enabled: bool) -> dict:
+        """Whether the motor reboots when the BLE connection is lost (safety settings bit0, default: True).
+        False: the motor keeps running its current state and waits for a new connection.
+        RAM only unless save_settings_to_flash is called. Returns the value read back."""
+        flags = int(session.call('read_safety_settings'))  # keep the other bits
+        if enabled:
+            flags |= BIT_SAFETY_BLE_DISCONNECT_RESET
+        else:
+            flags &= ~BIT_SAFETY_BLE_DISCONNECT_RESET & 0xFF
+        session.call('set_safety_settings', flags)
+        return {'reboot_on_ble_disconnect': _read('read_safety_settings', _ble_disconnect_reboot)}
 
     @server.tool(annotations=_SAFE_ACTION)
     def set_safe_run(enabled: bool, timeout_ms: int = 1000,

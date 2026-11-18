@@ -92,6 +92,36 @@ def test_not_connected_raises_connection_error():
     assert len(c._requests) == 0  # not counted as a failed request
 
 
+def test_bleak_error_becomes_connection_error():
+    # e.g. BleakGATTProtocolError while the Motor is being powered off
+    from bleak.exc import BleakError
+    c = make_controller()
+
+    def fail():
+        raise BleakError('GATT Protocol Error: Unlikely Error')
+    with pytest.raises(ConnectionError, match='Unlikely Error'):
+        c._timed(fail)
+    assert list(c._requests)[-1][1] is None  # counted as a failed request
+
+
+def test_connect_drops_client_that_fails_to_disconnect():
+    # just after the link was lost, bleak may still say "connected" but fail to disconnect
+    c = make_controller()
+
+    class StaleClient:
+        is_connected = True
+    c._client = StaleClient()
+    c._worker = ble._get_loop()
+    c.disconnect = lambda: (_ for _ in ()).throw(TypeError("'NoneType' object is not iterable"))
+    seen = {}
+
+    async def fake_connect():
+        seen['client'] = c._client
+    c._connect = fake_connect
+    c.connect()
+    assert seen == {'client': None}
+
+
 def test_connect_time_limit_covers_all_steps():
     c = make_controller()
     c.timeout, c.retries = 10.0, 2
@@ -117,7 +147,7 @@ def test_register_float():
     assert c.setting_values[0x02][0] == 3.5
 
 
-@pytest.mark.parametrize('comm', [0x05, 0x2C, 0x3C, 0xC3])
+@pytest.mark.parametrize('comm', [0x05, 0x2C, 0x32, 0x3C, 0xC3])
 def test_register_uint8(comm):
     c = make_controller()
     c._on_rx(None, b'\x40\x00\x00' + uint8_t2bytes(comm) + b'\x04' + CRC)
