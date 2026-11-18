@@ -31,7 +31,7 @@ def parse(c, frame):
     return c._USBController__serialdataParse(frame)
 
 
-@pytest.mark.parametrize('comm', [0x2C, 0x3C, 0xC3])
+@pytest.mark.parametrize('comm', [0x2C, 0x32, 0x3C, 0xC3])
 def test_parse_uint8_registers(comm):
     c = make_controller()
     assert parse(c, register_frame(comm, b'\x03'))
@@ -53,12 +53,22 @@ def test_read_ignores_stale_value():
 
 
 @pytest.mark.parametrize('method', ['read_baud_rate', 'read_motor_measurement_interval',
-                                    'read_imu_measurement_interval'])
+                                    'read_imu_measurement_interval', 'read_safety_settings'])
 def test_public_readers_are_accepted(method):
     def responder(c, register):
         parse(c, register_frame(register, b'\x01'))
     c = make_controller(responder)
     assert getattr(c, method)() == 1
+
+
+def test_set_safety_settings_command():
+    c = make_controller()
+    sent = []
+    c._run_command = lambda val, characteristics: sent.append((val, characteristics))
+    c.set_safety_settings(0)
+    c.set_safety_settings(c.BIT_SAFETY_BLE_DISCONNECT_RESET)
+    assert sent == [(b'\x32\x00\x00\x00', 'motor_rx'), (b'\x32\x00\x00\x01', 'motor_rx')]
+    assert c.command_names[0x32] == 'set_safety_settings'
 
 
 # ------------------------------------------------------------

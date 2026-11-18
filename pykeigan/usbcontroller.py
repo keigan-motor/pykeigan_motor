@@ -419,7 +419,7 @@ class USBController(base.Controller):
             if comm in float_value_comms:
                 self.setting_values[comm] = bytes2float(payload[3:7]), time.time()
                 return True
-            elif comm in (0x05, 0x2C, 0x3C, 0xC3):
+            elif comm in (0x05, 0x2C, 0x32, 0x3C, 0xC3):
                 self.setting_values[comm] = bytes2uint8_t(payload[3:4]), time.time()
                 return True
             elif comm == 0x3A:
@@ -477,7 +477,7 @@ class USBController(base.Controller):
     def _read_setting_value(self, comm, validation_threshold=1.0):#Register infomation
         float_value_comms = [0x02, 0x03, 0x07, 0x08, 0x0E, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x21,
                              0x5B]
-        valid_comms = [0x05, 0x2C, 0x3A, 0x3C, 0x46, 0x47, 0x9A, 0xC3]
+        valid_comms = [0x05, 0x2C, 0x32, 0x3A, 0x3C, 0x46, 0x47, 0x9A, 0xC3]
         valid_comms.extend(float_value_comms)
         if not (comm in valid_comms):
             raise ValueError("Unknown Command")

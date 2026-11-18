@@ -26,6 +26,8 @@ class Controller:
     the error codes, their causes and remedies (errors.describe(log) makes a readable message).
     With debug_mode=True, the logs are printed (with the cause and the remedy for errors).
     """
+    BIT_SAFETY_BLE_DISCONNECT_RESET = 0x01  # set_safety_settings() bit0: reboot when the BLE connection is lost
+
     def __init__(self):
         pass
 
@@ -375,6 +377,22 @@ class Controller:
             bit0: To start Notification of motor measurement when booting(1:ON, 0:OFF)
         """
         command=b'\x2D'
+        values=uint8_t2bytes(flag)
+        self._run_command(command+identifier+values,'motor_rx')
+
+    def set_safety_settings(self,flag,identifier=b'\x00\x00'):
+        """
+        Set the safety settings (register 0x32). RAM only: call save_all_registers() to keep it after a reboot.
+
+        ::
+
+            bit7-bit1: -
+            bit0: Reboot the motor when the BLE connection is lost (1:ON, 0:OFF). Default: 1 (ON)
+                  (BIT_SAFETY_BLE_DISCONNECT_RESET)
+
+        With bit0 = 0 the motor does not reboot when the BLE connection is lost: it waits for a new connection.
+        """
+        command=b'\x32'
         values=uint8_t2bytes(flag)
         self._run_command(command+identifier+values,'motor_rx')
 
@@ -1178,7 +1196,14 @@ class Controller:
         """
         Get the IMU measurement interval.
         """
-        return self._read_setting_value(0x3C) 
+        return self._read_setting_value(0x3C)
+
+    def read_safety_settings(self):
+        """
+        Read the safety settings (register 0x32). See set_safety_settings().
+        bit0 (BIT_SAFETY_BLE_DISCONNECT_RESET): reboot the motor when the BLE connection is lost.
+        """
+        return self._read_setting_value(0x32)
 
 
     def _handle_log(self, payload):

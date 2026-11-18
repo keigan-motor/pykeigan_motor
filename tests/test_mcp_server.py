@@ -180,6 +180,17 @@ def test_read_settings_baud_rate(env):
     assert '"usb_baud_rate": 921600' in str(call(server, 'read_settings'))
 
 
+def test_reboot_on_ble_disconnect(env):
+    server, motor = env
+    motor.set_safety_settings(0x81)  # bit0 ON + an unknown bit that must be kept
+    assert '"reboot_on_ble_disconnect": true' in str(call(server, 'read_settings'))
+    result = str(call(server, 'set_reboot_on_ble_disconnect', enabled=False))
+    assert motor.registers['safety_settings'] == 0x80
+    assert '"reboot_on_ble_disconnect": false' in result
+    call(server, 'set_reboot_on_ble_disconnect', enabled=True)
+    assert motor.registers['safety_settings'] == 0x81
+
+
 def test_baud_option_and_connect(monkeypatch):
     from pykeigan import usbcontroller
     opened = []
